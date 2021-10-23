@@ -2,17 +2,29 @@
 
 #include <string>
 
-#include <windows.h>
+namespace cvtsw
+{
 
-namespace cvtsw {
-   
-   auto enable_vt_mode(HANDLE handle) -> void;
-
+   // CHA; Cursor Horizontal Absolute
    template<typename string_type>
-   auto write_horizontal_pos(string_type& target, const int pos) -> void;
+   auto write_horizontal_pos(string_type& target, const int column) -> void;
 
    template<typename string_type = std::string>
-   [[nodiscard]] auto get_horizontal_pos(const int pos) -> string_type;
+   [[nodiscard]] auto get_horizontal_pos(const int column) -> string_type;
+
+   // VPA; Vertical Line Position Absolute
+   template<typename string_type>
+   auto write_vertical_pos(string_type& target, const int line) -> void;
+   
+   template<typename string_type = std::string>
+   [[nodiscard]] auto get_vertical_pos(const int line) -> string_type;
+
+   // Zero-based, i.e. line=0, column=0 is top left
+   template<typename string_type>
+   auto write_pos(string_type& target, const int line, const int column) -> void;
+
+   template<typename string_type = std::string>
+   [[nodiscard]] auto get_pos(const int line, const int column) -> string_type;
 
    template<typename string_type>
    auto write_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
@@ -31,33 +43,97 @@ namespace cvtsw {
       template<typename string_type>
       constexpr auto reserve_target(string_type& target, const int required_size) -> void;
    }
+
 } // namespace cvtsw
 
 
 template<typename string_type>
-auto cvtsw::write_horizontal_pos(string_type& target, const int pos) -> void
+auto cvtsw::write_horizontal_pos(string_type& target, const int column) -> void
 {
    detail::reserve_target(target, 5);
+   const int effective_pos = column + 1;
    if constexpr (std::same_as<string_type, std::string>)
    {
       target += "\x1b[";
-      target += std::to_string(pos);
+      target += std::to_string(effective_pos);
       target += "G";
    }
    else
    {
       target += L"\x1b[";
-      target += std::to_wstring(pos);
+      target += std::to_wstring(effective_pos);
       target += L"G";
    }
 }
 
 
 template<typename string_type>
-auto cvtsw::get_horizontal_pos(const int pos) -> string_type
+auto cvtsw::get_horizontal_pos(const int column) -> string_type
 {
    string_type result;
-   write_horizontal_pos(result, pos);
+   write_horizontal_pos(result, column);
+   return result;
+}
+
+
+template<typename string_type>
+auto cvtsw::write_vertical_pos(string_type& target, const int line) -> void
+{
+   detail::reserve_target(target, 5);
+   const int effective_line = line + 1;
+   if constexpr (std::same_as<string_type, std::string>)
+   {
+      target += "\x1b[";
+      target += std::to_string(effective_line);
+      target += "d";
+   }
+   else
+   {
+      target += L"\x1b[";
+      target += std::to_wstring(effective_line);
+      target += L"d";
+   }
+}
+
+
+template<typename string_type>
+auto cvtsw::get_vertical_pos(const int line) -> string_type
+{
+   string_type result;
+   write_vertical_pos(result, line);
+   return result;
+}
+
+
+template<typename string_type>
+auto cvtsw::write_pos(string_type& target, const int line, const int column) -> void
+{
+   // detail::reserve_target(target, 5);
+   const int effective_line = line + 1;
+   const int effective_column = column + 1;
+   if constexpr (std::same_as<string_type, std::string>)
+   {
+      target += "\x1b[";
+      target += std::to_string(effective_line);
+      target += ";";
+      target += std::to_string(effective_column);
+      target += "H";
+   }
+   else
+   {
+      target += L"\x1b[";
+      target += std::to_wstring(effective_line);
+      target += L";";
+      target += std::to_wstring(effective_column);
+      target += L"H";
+   }
+}
+
+template<typename string_type>
+auto cvtsw::get_pos(const int line, const int column) -> string_type
+{
+   string_type result;
+   write_pos(result, line, column);
    return result;
 }
 
@@ -131,34 +207,6 @@ constexpr auto cvtsw::detail::reserve_target(
    if (capacity_left < required_size)
    {
       target.reserve(target.capacity() + required_size);
-   }
-}
-
-
-auto cvtsw::enable_vt_mode(HANDLE handle) -> void
-{
-   HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-   if (handle == INVALID_HANDLE_VALUE)
-   {
-      std::terminate();
-   }
-
-   DWORD dwMode = 0;
-   if (!GetConsoleMode(hOut, &dwMode))
-   {
-      std::terminate();
-   }
-
-   const bool is_enabled = dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-   if (is_enabled)
-   {
-      return;
-   }
-
-   dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-   if (!SetConsoleMode(hOut, dwMode))
-   {
-      std::terminate();
    }
 }
 
