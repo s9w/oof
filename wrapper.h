@@ -23,7 +23,6 @@ namespace cvtsw
          template<cvtsw::std_string_type string_type>
          auto write(string_type& target) const;
 
-      private:
          template<cvtsw::std_string_type string_type>
          auto reserve(string_type& target) const -> void;
       };
@@ -34,12 +33,13 @@ namespace cvtsw
       using underline_type = super_type<'m', 1>;
       using reset_type = super_type<'m', 1>;
       using color_type = super_type<'m', 5>;
+      using enum_color_type = super_type<'m', 1>;
 
       template<cvtsw::std_string_type string_type, typename value_type>
       auto operator<<(string_type& target, const value_type value) -> string_type&;
 
-      template<typename stream_type, char ending, int param_count>
-      auto shift_impl(stream_type& os, const detail::super_type<ending, param_count>& value) -> stream_type&;
+      template<cvtsw::std_string_type string_type, char ending, int param_count>
+      auto write_to_string(string_type& target, const detail::super_type<ending, param_count>& value) -> void;
    }
 
    template<typename stream_type, char ending, int param_count>
@@ -73,6 +73,14 @@ namespace cvtsw
    template<cvtsw::std_string_type string_type>
    auto reset_formatting(string_type& target) -> void;
    [[nodiscard]] auto reset_formatting() -> detail::reset_type;
+
+   enum class color {
+      black = 30, red, green, yellow, blue, magenta, cyan, white,
+      reset = 39
+   };
+   template<cvtsw::std_string_type string_type>
+   auto fg_color(string_type& target, const color color) -> void;
+   [[nodiscard]] auto fg_color(const color color) -> detail::enum_color_type;
    
 
    namespace detail
@@ -89,7 +97,6 @@ namespace cvtsw
       };
       template<typename T>
       using super_char_type_t = typename super_char_type<T>::type;
-      
 
       template<cvtsw::std_string_type string_type>
       constexpr auto intro_str_v = "\x1b[";
@@ -187,43 +194,42 @@ cvtsw::detail::super_type<ending, param_count>::operator string_type() const
 {
    string_type result;
    reserve(result);
-   detail::shift_impl(result, *this);
+   detail::write_to_string(result, *this);
    return result;
 }
 
 
-
-template<typename stream_type, char ending, int param_count>
-auto cvtsw::detail::shift_impl(
-   stream_type& os,
-   const super_type<ending, param_count>& value
-) -> stream_type&
+template<cvtsw::std_string_type string_type, char ending, int param_count>
+auto cvtsw::detail::write_to_string(string_type& target, const detail::super_type<ending, param_count>& value) -> void
 {
-   using char_type = super_char_type_t<stream_type>;
-   using string_type = std::basic_string<char_type>;
-
-   // This must be in detail because otherwise the string<< might leak into global namespace (with using decl)
-   os << intro_str_v<string_type>;
+   using char_type = typename string_type::value_type;
+   target += intro_str_v<string_type>;
    for (int i = 0; i < std::size(value.m_start_params); ++i)
    {
-      os << value.m_start_params[i];
+      target += to_xstring<string_type>(value.m_start_params[i]);
 
       // Semicolon between parameters
       if (i != (std::size(value.m_start_params) - 1))
-         os << static_cast<char_type>(';');
+         target += static_cast<char_type>(';');
    }
-   os << value.m_ending;
-   return os;
+   target += value.m_ending;
 }
 
 
 template<typename stream_type, char ending, int param_count>
-stream_type& cvtsw::operator<<(
+ auto cvtsw::operator<<(
    stream_type& os,
    const detail::super_type<ending, param_count>& value
-   )
+) -> stream_type&
 {
-   return detail::shift_impl(os, value);
+   using char_type = detail::super_char_type_t<stream_type>;
+   using string_type = std::basic_string<char_type>;
+
+   string_type temp;
+   value.reserve(temp);
+   detail::write_to_string(temp, value);
+   os << temp;
+   return os;
 }
 
 
@@ -232,7 +238,7 @@ template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::super_type<ending, param_count>::write(string_type& target) const
 {
    reserve(target);
-   detail::shift_impl(target, *this);
+   detail::write_to_string(target, *this);
 }
 
 
@@ -289,6 +295,12 @@ auto cvtsw::fg_color(string_type& target, const int r, const int g, const int b)
    return fg_color(r, g, b).write(target);
 }
 
+template<cvtsw::std_string_type string_type>
+auto cvtsw::fg_color(string_type& target, const color color) -> void
+{
+   return fg_color(color).write(target);
+}
+
 
 template<cvtsw::std_string_type string_type>
 auto cvtsw::bg_color(string_type& target, const int r, const int g, const int b) -> void
@@ -335,6 +347,11 @@ auto cvtsw::hposition(const int column) -> detail::hpos_type
 auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::color_type
 {
    return detail::color_type{ 38, 2, r, g, b };
+}
+
+auto cvtsw::fg_color(const color color) -> detail::enum_color_type
+{
+   return detail::enum_color_type{ static_cast<int>(color) };
 }
 
 auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::color_type
