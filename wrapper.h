@@ -11,31 +11,32 @@ namespace cvtsw
       template<char ending, int param_count>
       struct super_type {
          constexpr static char m_ending = ending;
+         size_t m_reserve_size;
          int m_start_params[param_count];
 
          template<typename ... Ts>
-         constexpr super_type(const Ts... params)
-            : m_start_params{ params... }
-         {}
+         constexpr super_type(const Ts... params);
 
          template<cvtsw::std_string_type string_type>
          operator string_type() const;
 
-         auto write(std::string& target) const;
+         template<cvtsw::std_string_type string_type>
+         auto write(string_type& target) const;
+
+      private:
+         template<cvtsw::std_string_type string_type>
+         auto reserve(string_type& target) const -> void;
       };
 
       using pos_type = super_type<'H', 2>;
+      using hpos_type = super_type<'G', 1>;
+      using vpos_type = super_type<'d', 1>;
+      using underline_type = super_type<'m', 1>;
+      using reset_type = super_type<'m', 1>;
+      using color_type = super_type<'m', 5>;
 
-      //template<cvtsw::std_string_type string_type>
-      auto operator<<(std::string& target, const char* value) -> std::string&;
-      //template<cvtsw::std_string_type string_type>
-      auto operator<<(std::wstring& target, const wchar_t* value) -> std::wstring&;
-
-      template<cvtsw::std_string_type string_type, typename char_type = typename string_type::value_type>
-      auto operator<<(string_type& target, const char_type value) -> string_type&;
-      //auto operator<<(std::wstring& target, const wchar_t value) -> string_type&;
-      template<cvtsw::std_string_type string_type>
-      auto operator<<(string_type& target, const int value) -> string_type&;
+      template<cvtsw::std_string_type string_type, typename value_type>
+      auto operator<<(string_type& target, const value_type value) -> string_type&;
 
       template<typename stream_type, char ending, int param_count>
       auto shift_impl(stream_type& os, const detail::super_type<ending, param_count>& value) -> stream_type&;
@@ -44,52 +45,35 @@ namespace cvtsw
    template<typename stream_type, char ending, int param_count>
    auto operator<<(stream_type& os, const detail::super_type<ending, param_count>& value) -> stream_type&;
 
-   // CHA; Cursor Horizontal Absolute
-   template<cvtsw::std_string_type string_type>
-   auto write_horizontal_pos(string_type& target, const int column) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_horizontal_pos(const int column) -> string_type;
-
-   // VPA; Vertical Line Position Absolute
-   template<cvtsw::std_string_type string_type>
-   auto write_vertical_pos(string_type& target, const int line) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_vertical_pos(const int line) -> string_type;
-
-   // Zero-based, i.e. line=0, column=0 is top left
-   //template<cvtsw::std_string_type string_type>
-   //auto write_pos(string_type& target, const int line, const int column) -> void;
-   //template<cvtsw::std_string_type string_type = std::string>
-   //[[nodiscard]] auto get_pos(const int line, const int column) -> string_type;
-
-   // Foreground RGB color
-   template<cvtsw::std_string_type string_type>
-   auto write_fg_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_fg_rgb_color(const int r, const int g, const int b) -> string_type;
-
-   // Background RGB color
-   template<cvtsw::std_string_type string_type>
-   auto write_bg_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_bg_rgb_color(const int r, const int g, const int b)->string_type;
-
-   // Resets colors and underline state
-   template<cvtsw::std_string_type string_type>
-   auto write_total_default(string_type& target) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_total_default() -> string_type;
-
-   // Enables underline text
-   template<cvtsw::std_string_type string_type>
-   auto write_underline(string_type& target) -> void;
-   template<cvtsw::std_string_type string_type = std::string>
-   [[nodiscard]] auto get_underline() -> string_type;
-
-   [[nodiscard]] auto position(const int line, const int column) -> detail::pos_type;
 
    template<cvtsw::std_string_type string_type>
    auto position(string_type& target, const int line, const int column) -> void;
+   [[nodiscard]] auto position(const int line, const int column) -> detail::pos_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto vposition(string_type& target, const int line) -> void;
+   [[nodiscard]] auto vposition(const int line) -> detail::vpos_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto hposition(string_type& target, const int column) -> void;
+   [[nodiscard]] auto hposition(const int column) -> detail::hpos_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto fg_color(string_type& target, const int r, const int g, const int b) -> void;
+   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> detail::color_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto bg_color(string_type& target, const int r, const int g, const int b) -> void;
+   [[nodiscard]] auto bg_color(const int r, const int g, const int b)->detail::color_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto underline(string_type& target, const bool new_value = true) -> void;
+   [[nodiscard]] auto underline(const bool new_value = true) -> detail::underline_type;
+
+   template<cvtsw::std_string_type string_type>
+   auto reset_formatting(string_type& target) -> void;
+   [[nodiscard]] auto reset_formatting() -> detail::reset_type;
+   
 
    namespace detail
    {
@@ -105,9 +89,6 @@ namespace cvtsw
       };
       template<typename T>
       using super_char_type_t = typename super_char_type<T>::type;
-
-      //template<typename char_type, typename stream_type = std::basic_ostream<char_type>, char ending, int param_count>
-      //stream_type& operator<<(stream_type& os, const super_type<ending, param_count>& value);
       
 
       template<cvtsw::std_string_type string_type>
@@ -118,19 +99,7 @@ namespace cvtsw
       [[nodiscard]] constexpr auto get_param_str_length(const int param) -> size_t;
 
       template<typename ... Ts>
-      [[nodiscard]] constexpr auto get_param_str_lengths(const Ts... ints) -> size_t;
-
-      template<cvtsw::std_string_type string_type, typename T>
-      auto write_generic_impl(string_type& target, const char ending, const T last) -> void;
-
-      template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
-      auto write_generic_impl( string_type& target, const char ending, const T first, const Ts... rest) -> void;
-
-      template<cvtsw::std_string_type string_type, typename ... Ts>
-      auto write_generic(string_type& target, const char ending, const Ts... params) -> void;
-
-      template<cvtsw::std_string_type string_type, typename ... Ts>
-      [[nodiscard]] auto get_generic(const char ending, const Ts... params) -> string_type;
+      [[nodiscard]] constexpr auto get_reserve_size(const Ts... ints) -> size_t;
 
       template<cvtsw::std_string_type string_type>
       constexpr auto reserve_target(string_type& target, const size_t required_size) -> void;
@@ -143,181 +112,6 @@ namespace cvtsw
 } // namespace cvtsw
 
 
-template<cvtsw::std_string_type string_type, typename T>
-auto cvtsw::detail::write_generic_impl(
-   string_type& target,
-   const char ending,
-   const T last
-) -> void
-{
-   target += to_xstring<string_type>(last);
-   target += static_cast<typename string_type::value_type>(ending);
-}
-
-
-template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
-auto cvtsw::detail::write_generic_impl(
-   string_type& target,
-   const char ending,
-   const T first,
-   const Ts... rest
-) -> void
-{
-   target += to_xstring<string_type>(first);
-   target += static_cast<typename string_type::value_type>(';');
-   write_generic_impl(target, ending, rest...);
-}
-
-
-template<cvtsw::std_string_type string_type, typename ... Ts>
-auto cvtsw::detail::write_generic(
-   string_type& target,
-   const char ending,
-   const Ts... params
-) -> void
-{
-   static_assert((std::same_as<Ts, int> && ...), "Parameters are not ints.");
-   {
-      const size_t param_string_size = get_param_str_lengths(params...);
-      constexpr size_t semicolon_size = sizeof...(Ts) - 1;
-      constexpr size_t intro_size = 2;
-      constexpr size_t outro_size = 1;
-      const size_t reserve_size = intro_size + param_string_size + semicolon_size + outro_size;
-      detail::reserve_target(target, reserve_size);
-   }
-   target += intro_str_v<string_type>;
-
-   write_generic_impl(target, ending, params...);
-}
-
-
-template<cvtsw::std_string_type string_type, typename ... Ts>
-auto cvtsw::detail::get_generic(
-   const char ending,
-   const Ts... params
-) -> string_type
-{
-   string_type result;
-   write_generic(result, ending, params...);
-   return result;
-}
-
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_horizontal_pos(string_type& target, const int column) -> void
-{
-   detail::write_generic(target, 'G', column + 1);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_horizontal_pos(const int column) -> string_type
-{
-   string_type result;
-   write_horizontal_pos(result, column);
-   return result;
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_vertical_pos(string_type& target, const int line) -> void
-{
-   detail::write_generic(target, 'd', line + 1);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_vertical_pos(const int line) -> string_type
-{
-   string_type result;
-   write_vertical_pos(result, line);
-   return result;
-}
-
-
-//template<cvtsw::std_string_type string_type>
-//auto cvtsw::write_pos(string_type& target, const int line, const int column) -> void
-//{
-//   const int effective_line = line + 1;
-//   const int effective_column = column + 1;
-//   detail::write_generic(target, 'H', effective_line, effective_column);
-//}
-//
-//
-//template<cvtsw::std_string_type string_type>
-//auto cvtsw::get_pos(const int line, const int column) -> string_type
-//{
-//   string_type result;
-//   write_pos(result, line, column);
-//   return result;
-//}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_fg_rgb_color(string_type& target, const int r, const int g, const int b) -> void
-{
-   detail::write_generic( target, 'm', 38, 2, r, g, b);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_fg_rgb_color(const int r, const int g, const int b) -> string_type
-{
-   string_type result;
-   write_fg_rgb_color(result, r, g, b);
-   return result;
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_bg_rgb_color(string_type& target, const int r, const int g, const int b) -> void
-{
-   detail::write_generic(target, 'm', 48, 2, r, g, b);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_bg_rgb_color(const int r, const int g, const int b) -> string_type
-{
-   string_type result;
-   write_bg_rgb_color(result, r, g, b);
-   return result;
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_total_default(string_type& target) -> void
-{
-   detail::write_generic(target, 'm', 0);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_total_default() -> string_type
-{
-   string_type result;
-   write_total_default(result);
-   return result;
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::write_underline(string_type& target) -> void
-{
-   detail::write_generic(target, 'm', 4);
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_underline() -> string_type
-{
-   string_type result;
-   write_underline(result);
-   return result;
-}
-
-
 constexpr auto cvtsw::detail::get_param_str_length(const int param)->size_t
 {
    if (param < 10)
@@ -328,10 +122,15 @@ constexpr auto cvtsw::detail::get_param_str_length(const int param)->size_t
 }
 
 
-template <typename ... Ts>
-constexpr auto cvtsw::detail::get_param_str_lengths(const Ts... ints) -> size_t
+template<typename ... Ts>
+constexpr auto cvtsw::detail::get_reserve_size(const Ts... ints) -> size_t
 {
-   return (get_param_str_length(ints) + ...);
+   const size_t param_str_len = (get_param_str_length(ints) + ...);
+   constexpr size_t semicolon_size = sizeof...(Ts) - 1;
+   constexpr size_t intro_size = 2;
+   constexpr size_t outro_size = 1;
+   const size_t reserve_size = intro_size + param_str_len + semicolon_size + outro_size;
+   return reserve_size;
 }
 
 
@@ -359,48 +158,27 @@ auto cvtsw::detail::to_xstring(const T value) -> string_type
 }
 
 
-// maybe unite these two with a special concept
-//template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::operator<<(
-   std::string& target,
-   const char* value
-) -> std::string&
-{
-   target += value;
-   return target;
-}
-
-
-//template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::operator<<(
-   std::wstring& target,
-   const wchar_t* value
-   ) -> std::wstring&
-{
-   target += value;
-   return target;
-}
-
-
-template<cvtsw::std_string_type string_type, typename char_type>
-auto cvtsw::detail::operator<<(string_type& target, const char_type value)->string_type&
-{
-   // Necessary because otherwise he picks int overload
-   target += value;
-   return target;
-}
-
-
-template<cvtsw::std_string_type string_type>
+template<cvtsw::std_string_type string_type, typename value_type>
 auto cvtsw::detail::operator<<(
    string_type& target,
-   const int value
+   const value_type value
 ) -> string_type&
 {
-   target += to_xstring<string_type>(value);
-   return target;
-}
+   // There's three cases being covered by this:
+   // 1) int parameters. Those need to be explicitly converted to the string type
+   // 2) const char* / const wchar_t* for the starting character sequence. Those can just be appended
+   // 3) char / wchar_t for semicolons. Also appended, but need to make sure this is not caught in the int overload.
+   //    This does the trick.
+   if constexpr (std::same_as<value_type, int>) {
+      target += to_xstring<string_type>(value);
+      return target;
+   }
+   else {
+      target += value;
+      return target;
 
+   }
+}
 
 
 template<char ending, int param_count>
@@ -408,7 +186,7 @@ template<cvtsw::std_string_type string_type>
 cvtsw::detail::super_type<ending, param_count>::operator string_type() const
 {
    string_type result;
-   // TODO reserve
+   reserve(result);
    detail::shift_impl(result, *this);
    return result;
 }
@@ -418,14 +196,14 @@ cvtsw::detail::super_type<ending, param_count>::operator string_type() const
 template<typename stream_type, char ending, int param_count>
 auto cvtsw::detail::shift_impl(
    stream_type& os,
-   const detail::super_type<ending, param_count>& value
+   const super_type<ending, param_count>& value
 ) -> stream_type&
 {
    using char_type = super_char_type_t<stream_type>;
    using string_type = std::basic_string<char_type>;
 
    // This must be in detail because otherwise the string<< might leak into global namespace (with using decl)
-   os << detail::intro_str_v<string_type>;
+   os << intro_str_v<string_type>;
    for (int i = 0; i < std::size(value.m_start_params); ++i)
    {
       os << value.m_start_params[i];
@@ -440,16 +218,43 @@ auto cvtsw::detail::shift_impl(
 
 
 template<typename stream_type, char ending, int param_count>
-stream_type& cvtsw::operator<<(stream_type& os, const detail::super_type<ending, param_count>& value)
+stream_type& cvtsw::operator<<(
+   stream_type& os,
+   const detail::super_type<ending, param_count>& value
+   )
 {
    return detail::shift_impl(os, value);
 }
 
+
 template<char ending, int param_count>
-auto cvtsw::detail::super_type<ending, param_count>::write(std::string& target) const
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::super_type<ending, param_count>::write(string_type& target) const
 {
-   // TODO reserve
+   reserve(target);
    detail::shift_impl(target, *this);
+}
+
+
+template<char ending, int param_count>
+template<typename ... Ts>
+constexpr cvtsw::detail::super_type<ending, param_count>::super_type(
+   const Ts... params
+)
+   : m_start_params{ params... }
+   , m_reserve_size(get_reserve_size(params...))
+{
+   static_assert(sizeof...(Ts) == param_count, "Wrong number of parameters");
+}
+
+
+template<char ending, int param_count>
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::super_type<ending, param_count>::reserve(
+   string_type& target
+) const -> void
+{
+   detail::reserve_target(target, m_reserve_size);
 }
 
 
@@ -462,7 +267,92 @@ auto cvtsw::position(const int line, const int column) -> detail::pos_type
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::position(string_type& target, const int line, const int column) -> void
+auto cvtsw::position(
+   string_type& target,
+   const int line,
+   const int column
+) -> void
 {
    return position(line, column).write(target);
+}
+
+
+auto cvtsw::vposition(const int line)->detail::vpos_type
+{
+   const int effective_line = line + 1;
+   return detail::vpos_type{ effective_line };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::vposition(string_type& target, const int line) -> void
+{
+   return vposition(line).write(target);
+}
+
+
+auto cvtsw::hposition(const int column) -> detail::hpos_type
+{
+   const int effective_column = column + 1;
+   return detail::hpos_type{ effective_column };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::hposition(string_type& target, const int column) -> void
+{
+   return hposition(column).write(target);
+}
+
+
+auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::color_type
+{
+   return detail::color_type{ 38, 2, r, g, b };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::fg_color(string_type& target, const int r, const int g, const int b) -> void
+{
+   return fg_color(r, g, b).write(target);
+}
+
+
+auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::color_type
+{
+   return detail::color_type{ 48, 2, r, g, b };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::bg_color(string_type& target, const int r, const int g, const int b) -> void
+{
+   return bg_color(r, g, b).write(target);
+}
+
+
+auto cvtsw::underline(const bool new_value) -> detail::underline_type
+{
+   const int code = new_value == true ? 4 : 24;
+   return detail::underline_type{ code };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::underline(string_type& target, const bool new_value) -> void
+{
+   return underline(new_value).write(target);
+}
+
+
+auto cvtsw::reset_formatting() -> detail::reset_type
+{
+   return detail::reset_type{ 0 };
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::reset_formatting(string_type& target) -> void
+{
+   return underline().write(target);
 }
