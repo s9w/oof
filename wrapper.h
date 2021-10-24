@@ -68,11 +68,12 @@ namespace cvtsw
       [[nodiscard]] constexpr auto get_reserve_size(const int(& ary)[n]) -> size_t;
 
       // std::to_string() or std::to_wstring() depending on the template type
-      template<cvtsw::std_string_type string_type, typename T>
-      auto to_xstring(const T value) -> string_type;
+      template<cvtsw::std_string_type string_type>
+      auto to_xstring(string_type& target, const int value) -> void;
    }
 
 } // namespace cvtsw
+
 
 template<int n>
 [[nodiscard]] constexpr auto cvtsw::detail::get_reserve_size(const int(& ary)[n])->size_t
@@ -95,13 +96,19 @@ template<int n>
 }
 
 
-template<cvtsw::std_string_type string_type, typename T>
-auto cvtsw::detail::to_xstring(const T value) -> string_type
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::to_xstring(string_type& target, const int value) -> void
 {
-   if constexpr (std::same_as<string_type, std::string>)
-      return std::to_string(value);
-   else
-      return std::to_wstring(value);
+   int rest = value;
+   if (rest >= 100) {
+      target += '0' + (rest / 100);
+      rest = rest % 100;
+   }
+   if (rest >= 10) {
+      target += '0' + (rest / 10);
+      rest = rest % 10;
+   }
+   target += '0' + rest;
 }
 
 
@@ -127,12 +134,12 @@ auto cvtsw::detail::write_to_string(
       target += "\x1b[";
    else
       target += L"\x1b[";
-   for (int i = 0; i < std::size(value.m_start_params); ++i)
+   for (int i = 0; i < param_count; ++i)
    {
-      target += to_xstring<string_type>(value.m_start_params[i]);
+      to_xstring(target, value.m_start_params[i]);
 
       // Semicolon between parameters
-      if (i != (std::size(value.m_start_params) - 1))
+      if (i != (param_count - 1))
          target += static_cast<char_type>(';');
    }
    target += ending;
