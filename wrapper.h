@@ -8,38 +8,51 @@ namespace cvtsw
    // CHA; Cursor Horizontal Absolute
    template<typename string_type>
    auto write_horizontal_pos(string_type& target, const int column) -> void;
-
    template<typename string_type = std::string>
    [[nodiscard]] auto get_horizontal_pos(const int column) -> string_type;
 
    // VPA; Vertical Line Position Absolute
    template<typename string_type>
    auto write_vertical_pos(string_type& target, const int line) -> void;
-   
    template<typename string_type = std::string>
    [[nodiscard]] auto get_vertical_pos(const int line) -> string_type;
 
    // Zero-based, i.e. line=0, column=0 is top left
    template<typename string_type>
    auto write_pos(string_type& target, const int line, const int column) -> void;
-
    template<typename string_type = std::string>
    [[nodiscard]] auto get_pos(const int line, const int column) -> string_type;
 
+   // Foreground RGB color
    template<typename string_type>
-   auto write_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
-
+   auto write_fg_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
    template<typename string_type = std::string>
-   [[nodiscard]] auto get_rgb_color(const int r, const int g, const int b) -> string_type;
+   [[nodiscard]] auto get_fg_rgb_color(const int r, const int g, const int b) -> string_type;
 
+   // Background RGB color
+   template<typename string_type>
+   auto write_bg_rgb_color(string_type& target, const int r, const int g, const int b) -> void;
+   template<typename string_type = std::string>
+   [[nodiscard]] auto get_bg_rgb_color(const int r, const int g, const int b)->string_type;
+
+   // Resets colors and underline state
    template<typename string_type>
    auto write_total_default(string_type& target) -> void;
-
    template<typename string_type = std::string>
    [[nodiscard]] auto get_total_default() -> string_type;
 
+   template<typename string_type>
+   auto write_underline(string_type& target) -> void;
+   template<typename string_type = std::string>
+   [[nodiscard]] auto get_underline() -> string_type;
+
    namespace detail
    {
+      template<typename string_type>
+      constexpr auto intro_str_v = "\x1b[";
+      template<>
+      constexpr auto intro_str_v<std::wstring> = L"\x1b[";
+
       [[nodiscard]] constexpr auto get_param_str_length(const int param) -> size_t;
 
       template<typename ... Ts>
@@ -89,10 +102,7 @@ auto cvtsw::detail::write_generic_impl(
 ) -> void
 {
    target += to_xstring<string_type>(first);
-   if constexpr (std::same_as<string_type, std::string>)
-      target += ";";
-   else
-      target += L";";
+   target += static_cast<typename string_type::value_type>(';');
    write_generic_impl(target, ending, rest...);
 }
 
@@ -105,12 +115,15 @@ auto cvtsw::detail::write_generic(
 ) -> void
 {
    static_assert((std::same_as<Ts, int> && ...), "Parameters are not ints.");
-   const size_t reserve_size = get_param_str_lengths(params...) + 5; // TODO
-   detail::reserve_target(target, reserve_size);
-   if constexpr (std::same_as<string_type, std::string>)
-      target += "\x1b[";
-   else
-      target += L"\x1b[";
+   {
+      const size_t param_string_size = get_param_str_lengths(params...);
+      constexpr size_t semicolon_size = sizeof...(Ts) - 1;
+      constexpr size_t intro_size = 2;
+      constexpr size_t outro_size = 1;
+      const size_t reserve_size = intro_size + param_string_size + semicolon_size + outro_size;
+      detail::reserve_target(target, reserve_size);
+   }
+   target += intro_str_v<string_type>;
 
    write_generic_impl(target, ending, params...);
 }
@@ -180,17 +193,33 @@ auto cvtsw::get_pos(const int line, const int column) -> string_type
 
 
 template<typename string_type>
-auto cvtsw::write_rgb_color(string_type& target, const int r, const int g, const int b) -> void
+auto cvtsw::write_fg_rgb_color(string_type& target, const int r, const int g, const int b) -> void
 {
    detail::write_generic( target, 'm', 38, 2, r, g, b);
 }
 
 
 template<typename string_type>
-auto cvtsw::get_rgb_color(const int r, const int g, const int b) -> string_type
+auto cvtsw::get_fg_rgb_color(const int r, const int g, const int b) -> string_type
 {
    string_type result;
-   write_rgb_color(result, r, g, b);
+   write_fg_rgb_color(result, r, g, b);
+   return result;
+}
+
+
+template<typename string_type>
+auto cvtsw::write_bg_rgb_color(string_type& target, const int r, const int g, const int b) -> void
+{
+   detail::write_generic(target, 'm', 48, 2, r, g, b);
+}
+
+
+template<typename string_type>
+auto cvtsw::get_bg_rgb_color(const int r, const int g, const int b) -> string_type
+{
+   string_type result;
+   write_bg_rgb_color(result, r, g, b);
    return result;
 }
 
@@ -201,11 +230,28 @@ auto cvtsw::write_total_default(string_type& target) -> void
    detail::write_generic(target, 'm', 0);
 }
 
+
 template<typename string_type>
-auto cvtsw::get_total_default()->string_type
+auto cvtsw::get_total_default() -> string_type
 {
    string_type result;
    write_total_default(result);
+   return result;
+}
+
+
+template<typename string_type>
+auto cvtsw::write_underline(string_type& target) -> void
+{
+   detail::write_generic(target, 'm', 4);
+}
+
+
+template<typename string_type>
+auto cvtsw::get_underline() -> string_type
+{
+   string_type result;
+   write_underline(result);
    return result;
 }
 
