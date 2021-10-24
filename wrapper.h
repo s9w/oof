@@ -40,30 +40,99 @@ namespace cvtsw
 
    namespace detail
    {
+      [[nodiscard]] constexpr auto get_param_str_length(const int param) -> size_t;
+
+      template<typename ... Ts>
+      [[nodiscard]] constexpr auto get_param_str_lengths(const Ts... ints) -> size_t;
+
+      template<typename string_type, typename T>
+      auto write_generic_impl(string_type& target, const char ending, const T last) -> void;
+
+      template<typename string_type, typename T, typename ... Ts>
+      auto write_generic_impl( string_type& target, const char ending, const T first, const Ts... rest) -> void;
+
+      template<typename string_type, typename ... Ts>
+      auto write_generic(string_type& target, const char ending, const Ts... params) -> void;
+
+      template<typename string_type, typename ... Ts>
+      [[nodiscard]] auto get_generic(const char ending, const Ts... params) -> string_type;
+
       template<typename string_type>
-      constexpr auto reserve_target(string_type& target, const int required_size) -> void;
+      constexpr auto reserve_target(string_type& target, const size_t required_size) -> void;
+
+      // std::to_string() or std::to_wstring() depending on the template type
+      template<typename string_type, typename T>
+      auto to_xstring(const T value) -> string_type;
    }
 
 } // namespace cvtsw
 
 
+template<typename string_type, typename T>
+auto cvtsw::detail::write_generic_impl(
+   string_type& target,
+   const char ending,
+   const T last
+) -> void
+{
+   target += to_xstring<string_type>(last);
+   target += static_cast<typename string_type::value_type>(ending);
+}
+
+
+template<typename string_type, typename T, typename ... Ts>
+auto cvtsw::detail::write_generic_impl(
+   string_type& target,
+   const char ending,
+   const T first,
+   const Ts... rest
+) -> void
+{
+   target += to_xstring<string_type>(first);
+   if constexpr (std::same_as<string_type, std::string>)
+      target += ";";
+   else
+      target += L";";
+   write_generic_impl(target, ending, rest...);
+}
+
+
+template<typename string_type, typename ... Ts>
+auto cvtsw::detail::write_generic(
+   string_type& target,
+   const char ending,
+   const Ts... params
+) -> void
+{
+   static_assert((std::same_as<Ts, int> && ...), "Parameters are not ints.");
+   const size_t reserve_size = get_param_str_lengths(params...) + 5; // TODO
+   detail::reserve_target(target, reserve_size);
+   if constexpr (std::same_as<string_type, std::string>)
+      target += "\x1b[";
+   else
+      target += L"\x1b[";
+
+   write_generic_impl(target, ending, params...);
+}
+
+
+template<typename string_type, typename ... Ts>
+auto cvtsw::detail::get_generic(
+   const char ending,
+   const Ts... params
+) -> string_type
+{
+   string_type result;
+   write_generic(result, ending, params...);
+   return result;
+}
+
+
+
 template<typename string_type>
 auto cvtsw::write_horizontal_pos(string_type& target, const int column) -> void
 {
-   detail::reserve_target(target, 5);
-   const int effective_pos = column + 1;
-   if constexpr (std::same_as<string_type, std::string>)
-   {
-      target += "\x1b[";
-      target += std::to_string(effective_pos);
-      target += "G";
-   }
-   else
-   {
-      target += L"\x1b[";
-      target += std::to_wstring(effective_pos);
-      target += L"G";
-   }
+   detail::write_generic(target, 'G', detail::to_xstring<string_type>(column + 1).c_str());
 }
 
 
@@ -79,20 +148,7 @@ auto cvtsw::get_horizontal_pos(const int column) -> string_type
 template<typename string_type>
 auto cvtsw::write_vertical_pos(string_type& target, const int line) -> void
 {
-   detail::reserve_target(target, 5);
-   const int effective_line = line + 1;
-   if constexpr (std::same_as<string_type, std::string>)
-   {
-      target += "\x1b[";
-      target += std::to_string(effective_line);
-      target += "d";
-   }
-   else
-   {
-      target += L"\x1b[";
-      target += std::to_wstring(effective_line);
-      target += L"d";
-   }
+   detail::write_generic(target, 'd', detail::to_xstring<string_type>(line + 1).c_str());
 }
 
 
@@ -108,26 +164,11 @@ auto cvtsw::get_vertical_pos(const int line) -> string_type
 template<typename string_type>
 auto cvtsw::write_pos(string_type& target, const int line, const int column) -> void
 {
-   // detail::reserve_target(target, 5);
    const int effective_line = line + 1;
    const int effective_column = column + 1;
-   if constexpr (std::same_as<string_type, std::string>)
-   {
-      target += "\x1b[";
-      target += std::to_string(effective_line);
-      target += ";";
-      target += std::to_string(effective_column);
-      target += "H";
-   }
-   else
-   {
-      target += L"\x1b[";
-      target += std::to_wstring(effective_line);
-      target += L";";
-      target += std::to_wstring(effective_column);
-      target += L"H";
-   }
+   detail::write_generic(target, 'H', detail::to_xstring<string_type>(effective_line).c_str(), detail::to_xstring<string_type>(effective_column).c_str());
 }
+
 
 template<typename string_type>
 auto cvtsw::get_pos(const int line, const int column) -> string_type
@@ -141,27 +182,7 @@ auto cvtsw::get_pos(const int line, const int column) -> string_type
 template<typename string_type>
 auto cvtsw::write_rgb_color(string_type& target, const int r, const int g, const int b) -> void
 {
-   detail::reserve_target(target, 19);
-   if constexpr (std::same_as<string_type, std::string>)
-   {
-      target += "\x1b[38;2;";
-      target += std::to_string(r);
-      target += ";";
-      target += std::to_string(g);
-      target += ";";
-      target += std::to_string(b);
-      target += "m";
-   }
-   else
-   {
-      target += L"\x1b[38;2;";
-      target += std::to_wstring(r);
-      target += L";";
-      target += std::to_wstring(g);
-      target += L";";
-      target += std::to_wstring(b);
-      target += L"m";
-   }
+   detail::write_generic( target, 'm', 38, 2, r, g, b);
 }
 
 
@@ -177,15 +198,7 @@ auto cvtsw::get_rgb_color(const int r, const int g, const int b) -> string_type
 template<typename string_type>
 auto cvtsw::write_total_default(string_type& target) -> void
 {
-   detail::reserve_target(target, 4);
-   if constexpr (std::same_as<string_type, std::string>)
-   {
-      target += "\x1b[0m";
-   }
-   else
-   {
-      target += L"\x1b[0m";
-   }
+   detail::write_generic(target, 'm', 0);
 }
 
 template<typename string_type>
@@ -197,10 +210,27 @@ auto cvtsw::get_total_default()->string_type
 }
 
 
+constexpr auto cvtsw::detail::get_param_str_length(const int param)->size_t
+{
+   if (param < 10)
+      return 1;
+   if (param < 100)
+      return 2;
+   return 3;
+}
+
+
+template <typename ... Ts>
+constexpr auto cvtsw::detail::get_param_str_lengths(const Ts... ints) -> size_t
+{
+   return (get_param_str_length(ints) + ...);
+}
+
+
 template<typename string_type>
 constexpr auto cvtsw::detail::reserve_target(
    string_type& target,
-   const int required_size
+   const size_t required_size
 ) -> void
 {
    const size_t capacity_left = target.capacity() - target.size();
@@ -210,3 +240,12 @@ constexpr auto cvtsw::detail::reserve_target(
    }
 }
 
+
+template<typename string_type, typename T>
+auto cvtsw::detail::to_xstring(const T value) -> string_type
+{
+   if constexpr (std::same_as<string_type, std::string>)
+      return std::to_string(value);
+   else
+      return std::to_wstring(value);
+}
