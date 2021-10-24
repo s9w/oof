@@ -15,7 +15,7 @@ namespace cvtsw
          int m_start_params[param_count];
 
          template<typename ... Ts>
-         constexpr super_type(const Ts... params);
+         constexpr explicit super_type(const Ts... params);
 
          template<cvtsw::std_string_type string_type>
          operator string_type() const;
@@ -258,14 +258,6 @@ auto cvtsw::detail::super_type<ending, param_count>::reserve(
 }
 
 
-auto cvtsw::position(const int line, const int column) -> detail::pos_type
-{
-   const int effective_line = line + 1;
-   const int effective_column = column + 1;
-   return detail::pos_type{ effective_line, effective_column };
-}
-
-
 template<cvtsw::std_string_type string_type>
 auto cvtsw::position(
    string_type& target,
@@ -277,24 +269,10 @@ auto cvtsw::position(
 }
 
 
-auto cvtsw::vposition(const int line)->detail::vpos_type
-{
-   const int effective_line = line + 1;
-   return detail::vpos_type{ effective_line };
-}
-
-
 template<cvtsw::std_string_type string_type>
 auto cvtsw::vposition(string_type& target, const int line) -> void
 {
    return vposition(line).write(target);
-}
-
-
-auto cvtsw::hposition(const int column) -> detail::hpos_type
-{
-   const int effective_column = column + 1;
-   return detail::hpos_type{ effective_column };
 }
 
 
@@ -305,22 +283,10 @@ auto cvtsw::hposition(string_type& target, const int column) -> void
 }
 
 
-auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::color_type
-{
-   return detail::color_type{ 38, 2, r, g, b };
-}
-
-
 template<cvtsw::std_string_type string_type>
 auto cvtsw::fg_color(string_type& target, const int r, const int g, const int b) -> void
 {
    return fg_color(r, g, b).write(target);
-}
-
-
-auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::color_type
-{
-   return detail::color_type{ 48, 2, r, g, b };
 }
 
 
@@ -331,23 +297,10 @@ auto cvtsw::bg_color(string_type& target, const int r, const int g, const int b)
 }
 
 
-auto cvtsw::underline(const bool new_value) -> detail::underline_type
-{
-   const int code = new_value == true ? 4 : 24;
-   return detail::underline_type{ code };
-}
-
-
 template<cvtsw::std_string_type string_type>
 auto cvtsw::underline(string_type& target, const bool new_value) -> void
 {
    return underline(new_value).write(target);
-}
-
-
-auto cvtsw::reset_formatting() -> detail::reset_type
-{
-   return detail::reset_type{ 0 };
 }
 
 
@@ -356,3 +309,48 @@ auto cvtsw::reset_formatting(string_type& target) -> void
 {
    return underline().write(target);
 }
+
+
+#ifdef CM_IMPL
+
+auto cvtsw::position(const int line, const int column) -> detail::pos_type
+{
+   const int effective_line = line + 1;
+   const int effective_column = column + 1;
+   return detail::pos_type{ effective_line, effective_column };
+}
+
+auto cvtsw::vposition(const int line)->detail::vpos_type
+{
+   const int effective_line = line + 1;
+   return detail::vpos_type{ effective_line };
+}
+
+auto cvtsw::hposition(const int column) -> detail::hpos_type
+{
+   const int effective_column = column + 1;
+   return detail::hpos_type{ effective_column };
+}
+
+auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::color_type
+{
+   return detail::color_type{ 38, 2, r, g, b };
+}
+
+auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::color_type
+{
+   return detail::color_type{ 48, 2, r, g, b };
+}
+
+auto cvtsw::underline(const bool new_value) -> detail::underline_type
+{
+   const int code = new_value == true ? 4 : 24;
+   return detail::underline_type{ code };
+}
+
+auto cvtsw::reset_formatting() -> detail::reset_type
+{
+   return detail::reset_type{ 0 };
+}
+
+#endif
