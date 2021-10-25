@@ -17,6 +17,9 @@ namespace cvtsw
 
          template<cvtsw::std_string_type string_type>
          operator string_type() const;
+
+         template<cvtsw::std_string_type string_type>
+         auto write_into(string_type& target) const;
       };
 
       using pos_params = param_holder<'H', 2>;
@@ -120,6 +123,15 @@ cvtsw::detail::param_holder<ending, param_count>::operator string_type() const
    reserve_size(result, get_reserve_size(m_start_params));
    detail::write_to_string(result, *this);
    return result;
+}
+
+
+template<char ending, int param_count>
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::param_holder<ending, param_count>::write_into(string_type& target) const
+{
+   reserve_size(target, get_reserve_size(m_start_params));
+   detail::write_to_string(target, *this);
 }
 
 
