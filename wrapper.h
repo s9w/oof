@@ -71,11 +71,11 @@ namespace cvtsw
    [[nodiscard]] constexpr auto operator==(const color& a, const color& b) -> bool;
 
    template<typename char_type>
-   struct cell{
+   struct cell {
       char_type letter = ' ';
       bool underline = false;
-      std::optional<color> fg_color; // nullopt means default
-      std::optional<color> bg_color;
+      color fg_color;
+      color bg_color;
    };
 
    template<typename char_type>
@@ -353,37 +353,18 @@ auto cvtsw::draw_screen(const cvtsw::screen<char_type>& new_screen) -> detail::m
       const cell<char_type>& cell = new_screen.m_cells[i];
       if(is_first_cell)
       {
-         if (cell.fg_color.has_value())
-            fg_color(cell.fg_color->red, cell.fg_color->green, cell.fg_color->blue).write_into(result_str);
-         if (cell.bg_color.has_value())
-            bg_color(cell.bg_color->red, cell.bg_color->green, cell.bg_color->blue).write_into(result_str);
+         fg_color(cell.fg_color.red, cell.fg_color.green, cell.fg_color.blue).write_into(result_str);
+         bg_color(cell.bg_color.red, cell.bg_color.green, cell.bg_color.blue).write_into(result_str);
          underline(cell.underline).write_into(result_str);
       }
       else {
-         // If any color is nullopt (and wasn't that before), a reset is necessary.
-         const bool fg_reset_necessary = (cell.fg_color != last_state.fg_color) && (cell.fg_color.has_value() == false);
-         const bool bg_reset_necessary = (cell.bg_color != last_state.bg_color) && (cell.bg_color.has_value() == false);
-         if (fg_reset_necessary || bg_reset_necessary)
-         {
-            reset_formatting().write_into(result_str);
-
-            // In case of reset, colors have to be rewritten (if they're not nullopt). Even if they're the same as last time
-            if (cell.fg_color.has_value())
-               fg_color(cell.fg_color->red, cell.fg_color->green, cell.fg_color->blue).write_into(result_str);
-            if (cell.bg_color.has_value())
-               bg_color(cell.bg_color->red, cell.bg_color->green, cell.bg_color->blue).write_into(result_str);
-
+         // Without reset, colors only have to be rewritten if they changed
+         if (cell.fg_color != last_state.fg_color)
+            fg_color(cell.fg_color.red, cell.fg_color.green, cell.fg_color.blue).write_into(result_str);
+         if (cell.bg_color != last_state.bg_color)
+            bg_color(cell.bg_color.red, cell.bg_color.green, cell.bg_color.blue).write_into(result_str);
+         if (cell.underline != last_state.underline)
             underline(cell.underline).write_into(result_str);
-         }
-         else {
-            // Without reset, colors only have to be rewritten if they changed
-            if (cell.fg_color != last_state.fg_color && cell.fg_color.has_value())
-               fg_color(cell.fg_color->red, cell.fg_color->green, cell.fg_color->blue).write_into(result_str);
-            if (cell.bg_color != last_state.bg_color && cell.bg_color.has_value())
-               bg_color(cell.bg_color->red, cell.bg_color->green, cell.bg_color->blue).write_into(result_str);
-            if (cell.underline != last_state.underline)
-               underline(cell.underline).write_into(result_str);
-         }
       }
 
       // TODO this could be skipped / jumped over if no other format changes
