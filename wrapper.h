@@ -87,9 +87,9 @@ namespace cvtsw
       std::vector<cell<char_type>> m_cells;
 
       explicit screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char);
-      [[nodiscard]] auto get_index(const int column, const int line) -> size_t;
+      [[nodiscard]] auto get_index(const int column, const int line) const -> size_t;
       [[nodiscard]] auto get(const int column, const int line) -> cell<char_type>&;
-      [[nodiscard]] auto is_inside(const int column, const int line) -> bool;
+      [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
    };
 
    struct pixel_screen {
@@ -102,8 +102,9 @@ namespace cvtsw
       explicit pixel_screen(const int width, const int halfline_height, const int start_column, const int start_halfline, const color& fill_color);
       [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<wchar_t>;
       [[nodiscard]] auto get_line_height() const -> int;
-      [[nodiscard]] auto get_color(const int column, const int halfline) const -> std::optional<color>;
-      [[nodiscard]] auto get_color_ref(const int column, const int halfline) -> color&;
+      [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
+      [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
+      [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
    };
 
    // Enables streaming and implicit conversation to strings
@@ -353,11 +354,11 @@ auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<w
 
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
-   for(int line=0; line<get_line_height(); ++line){
-      for (int column = 0; column < m_width; ++column){
+   for(int line=0; line<result.m_height; ++line){
+      for (int column = 0; column<result.m_width; ++column){
          cell<wchar_t>& target_cell = result.get(column, line);
-         target_cell.fg_color = get_color(column, halfline_top).value_or(frame_color);
-         target_cell.bg_color = get_color(column, halfline_bottom).value_or(frame_color);
+         target_cell.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
+         target_cell.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
          int end = 0;
       }
       halfline_top += 2;
@@ -375,19 +376,25 @@ auto cvtsw::pixel_screen::get_line_height() const -> int
 }
 
 
+auto cvtsw::pixel_screen::is_in(const int column, const int halfline) const -> bool
+{
+   const int index = halfline * m_width + column;
+   const bool is_out = index < 0 || index >(m_pixels.size() - 1);
+   return !is_out;
+}
+
+
 auto cvtsw::pixel_screen::get_color(
    const int column,
    const int halfline
-) const -> std::optional<color>
+) const -> const color&
 {
    const int index = halfline * m_width + column;
-   if (index < 0 || index > (m_pixels.size() - 1))
-      return std::nullopt;
    return m_pixels[index];
 }
 
 
-auto cvtsw::pixel_screen::get_color_ref(
+auto cvtsw::pixel_screen::get_color(
    const int column,
    const int halfline
 ) -> color&
@@ -451,14 +458,12 @@ auto cvtsw::draw_screen(const cvtsw::screen<char_type>& new_screen) -> detail::m
 
       // TODO this could be skipped / jumped over if no other format changes
       result_str += cell.letter;
-      // result_str += '▄';
       ++column;
       if (column == new_screen.m_width) {
          position(line+1 + new_screen.m_origin_line, 0 + new_screen.m_origin_column).write_into(result_str);
          ++line;
          column = 0;
       }
-      
 
       last_state = cell;
       is_first_cell = false;
@@ -469,7 +474,7 @@ auto cvtsw::draw_screen(const cvtsw::screen<char_type>& new_screen) -> detail::m
 
 
 template<typename char_type>
-auto cvtsw::screen<char_type>::get_index(const int column, const int line) -> size_t
+auto cvtsw::screen<char_type>::get_index(const int column, const int line) const -> size_t
 {
    return line * m_width + column;
 }
@@ -485,7 +490,7 @@ auto cvtsw::screen<char_type>::get(const int column, const int line) -> cell<cha
 
 
 template<typename char_type>
-auto cvtsw::screen<char_type>::is_inside(const int column, const int line) -> bool
+auto cvtsw::screen<char_type>::is_inside(const int column, const int line) const -> bool
 {
    return column >= 0 && column < m_width && line >= 0 && line < m_height;
 }
