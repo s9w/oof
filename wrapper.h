@@ -92,6 +92,20 @@ namespace cvtsw
       [[nodiscard]] auto is_inside(const int column, const int line) -> bool;
    };
 
+   struct pixel_screen {
+      int m_width = 0; // Width is identical between "pixels" and characters
+      int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
+      int m_origin_column = 0;
+      int m_origin_halfline = 0;
+      std::vector<color> m_pixels;
+
+      explicit pixel_screen(const int width, const int halfline_height, const int start_column, const int start_halfline, const color& fill_color);
+      [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<wchar_t>;
+      [[nodiscard]] auto get_line_height() const -> int;
+      [[nodiscard]] auto get_color(const int column, const int halfline) const -> std::optional<color>;
+      [[nodiscard]] auto get_color_ref(const int column, const int halfline) -> color&;
+   };
+
    // Enables streaming and implicit conversation to strings
    namespace detail{
       template<typename char_type>
@@ -105,7 +119,7 @@ namespace cvtsw
 
    // First draw
    template<typename char_type>
-   auto draw_screen(const screen<char_type>& new_screen) -> detail::magic<char_type>;
+   auto draw_screen(const screen<char_type>& new_screen) -> detail::magic<char_type>; // TODO make this member maybe
 
    // Update draw
    template<typename char_type>
@@ -312,6 +326,74 @@ auto cvtsw::underline(const bool new_value) -> detail::underline_params{
 
 auto cvtsw::reset_formatting() -> detail::reset_params{
    return detail::reset_params{ 0 };
+}
+
+
+cvtsw::pixel_screen::pixel_screen(
+   const int width,
+   const int halfline_height,
+   const int start_column,
+   const int start_halfline,
+   const color& fill_color
+)
+   : m_width(width)
+   , m_halfline_height(halfline_height)
+   , m_origin_column(start_column)
+   , m_origin_halfline(start_halfline)
+   , m_pixels(m_width * m_halfline_height, fill_color)
+{
+
+}
+
+
+auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<wchar_t>
+{
+   screen<wchar_t> result{ m_width, get_line_height(), m_origin_column, m_origin_halfline/2, L'▀' };
+   // This means fg color is on top
+
+   int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
+   int halfline_bottom = halfline_top + 1;
+   for(int line=0; line<get_line_height(); ++line){
+      for (int column = 0; column < m_width; ++column){
+         cell<wchar_t>& target_cell = result.get(column, line);
+         target_cell.fg_color = get_color(column, halfline_top).value_or(frame_color);
+         target_cell.bg_color = get_color(column, halfline_bottom).value_or(frame_color);
+         int end = 0;
+      }
+      halfline_top += 2;
+      halfline_bottom += 2;
+   }
+   return result;
+}
+
+
+auto cvtsw::pixel_screen::get_line_height() const -> int
+{
+   const int first_line = m_origin_halfline / 2;
+   const int last_line = (m_origin_halfline -1 + m_halfline_height) / 2;
+   return last_line - first_line + 1;
+}
+
+
+auto cvtsw::pixel_screen::get_color(
+   const int column,
+   const int halfline
+) const -> std::optional<color>
+{
+   const int index = halfline * m_width + column;
+   if (index < 0 || index > (m_pixels.size() - 1))
+      return std::nullopt;
+   return m_pixels[index];
+}
+
+
+auto cvtsw::pixel_screen::get_color_ref(
+   const int column,
+   const int halfline
+) -> color&
+{
+   const int index = halfline * m_width + column;
+   return m_pixels[index];
 }
 
 #endif
