@@ -35,6 +35,13 @@ namespace cvtsw
       using rgb_color_params = param_holder<'m', 5>;
       using enum_color_params = param_holder<'m', 1>;
    }
+
+   struct color {
+      uint8_t red = 0ui8;
+      uint8_t green = 0ui8;
+      uint8_t blue = 0ui8;
+      friend constexpr auto operator<=>(const color&, const color&) = default;
+   };
    
 
    [[nodiscard]] auto position(const int line, const int column) -> detail::pos_params;
@@ -47,9 +54,11 @@ namespace cvtsw
    constexpr size_t   hposition_max = 3 + 3;
 
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> detail::rgb_color_params;
+   [[nodiscard]] auto fg_color(const color& col) -> detail::rgb_color_params;
    constexpr size_t   fg_color_max = 3 + 16;
 
    [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> detail::rgb_color_params;
+   [[nodiscard]] auto bg_color(const color& col) -> detail::rgb_color_params;
    constexpr size_t   bg_color_max = 3 + 16;
 
    [[nodiscard]] auto underline(const bool new_value = true) -> detail::underline_params;
@@ -63,33 +72,36 @@ namespace cvtsw
    enum class color_enum {black = 30, red, green, yellow, blue, magenta, cyan, white, reset = 39 };
    [[nodiscard]] auto fg_color(const color_enum color) -> detail::enum_color_params;
 
-   struct color{
-      uint8_t red = 0ui8;
-      uint8_t green = 0ui8;
-      uint8_t blue = 0ui8;
-   };
-   [[nodiscard]] constexpr auto operator==(const color& a, const color& b) -> bool;
+
 
    template<typename char_type>
    struct cell {
-      char_type letter = ' ';
+      char_type letter{};
       bool underline = false;
       color fg_color;
       color bg_color;
+
+      friend constexpr auto operator<=>(const cell&, const cell&) = default;
    };
 
    template<typename char_type>
    struct screen{
+      using string_type = std::basic_string<char_type>;
+
       int m_width = 0;
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
+      mutable std::optional<size_t> m_last_string_size;
+      // mutable bool m_has_drawn = false;
       std::vector<cell<char_type>> m_cells;
+      mutable std::vector<cell<char_type>> m_old_cells;
 
       explicit screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char);
       [[nodiscard]] auto get_index(const int column, const int line) const -> size_t;
       [[nodiscard]] auto get(const int column, const int line) -> cell<char_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
+      [[nodiscard]] auto get_string() const -> string_type;
    };
 
    struct pixel_screen {
@@ -106,34 +118,12 @@ namespace cvtsw
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
       [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
    };
-
-   // Enables streaming and implicit conversation to strings
-   namespace detail{
-      template<typename char_type>
-      struct magic {
-         using string_type = std::basic_string<char_type>;
-         string_type m_content;
-
-         operator string_type() const;
-      };
-   }
-
-   // First draw
-   template<typename char_type>
-   auto draw_screen(const screen<char_type>& new_screen) -> detail::magic<char_type>; // TODO make this member maybe
-
-   // Update draw
-   template<typename char_type>
-   auto draw_screen(const screen<char_type>& old_screen, const screen<char_type>& new_screen) -> detail::magic<char_type>;
    
 
    namespace detail
    {
       template<typename stream_type, char ending, int param_count>
       auto operator<<(stream_type& os, const detail::param_holder<ending, param_count>& value) -> stream_type&;
-
-      template<typename stream_type, typename char_type>
-      auto operator<<(stream_type& os, const detail::magic<char_type>& value)->stream_type&;
 
       template<cvtsw::std_string_type string_type>
       auto reserve_size(string_type& target, const size_t needed_size) -> void;
@@ -147,6 +137,31 @@ namespace cvtsw
       // std::to_string() or std::to_wstring() depending on the template type
       template<cvtsw::std_string_type string_type>
       auto to_xstring(string_type& target, const int value) -> void;
+
+      struct draw_state{
+         bool underline = false;
+         color fg_color;
+         color bg_color;
+      };
+
+      template<typename char_type>
+      [[nodiscard]] auto get_screen_string(const screen<char_type>& scr) ->std::basic_string<char_type>;
+
+      // only fires once
+      
+      struct single_hitter{
+         bool m_has_fired = false;
+
+         template<typename lambda_type>
+         auto hit(const lambda_type& fun) -> void
+         {
+            if (m_has_fired)
+               return;
+
+            fun();
+            m_has_fired = true;
+         }
+      };
    }
 
 } // namespace cvtsw
@@ -191,13 +206,6 @@ cvtsw::detail::param_holder<ending, param_count>::operator string_type() const
    reserve_size(result, get_reserve_size(m_start_params));
    detail::write_to_string(result, *this);
    return result;
-}
-
-
-template <typename char_type>
-cvtsw::detail::magic<char_type>::operator string_type() const
-{
-   return m_content;
 }
 
 
@@ -266,17 +274,6 @@ auto cvtsw::detail::operator<<(
 }
 
 
-template<typename stream_type, typename char_type>
-auto cvtsw::detail::operator<<(
-   stream_type& os,
-   const magic<char_type>& value
-) -> stream_type&
-{
-   os << value.m_content;
-   return os;
-}
-
-
 template<char ending, int param_count>
 template<typename ... Ts>
 constexpr cvtsw::detail::param_holder<ending, param_count>::param_holder(
@@ -312,12 +309,20 @@ auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::rgb_color
    return detail::rgb_color_params{ 38, 2, r, g, b };
 }
 
+auto cvtsw::fg_color(const color& col) -> detail::rgb_color_params {
+   return detail::rgb_color_params{ 38, 2, col.red, col.green, col.blue };
+}
+
 auto cvtsw::fg_color(const color_enum color) -> detail::enum_color_params{
    return detail::enum_color_params{ static_cast<int>(color) };
 }
 
 auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::rgb_color_params{
    return detail::rgb_color_params{ 48, 2, r, g, b };
+}
+
+auto cvtsw::bg_color(const color& col) -> detail::rgb_color_params {
+   return detail::rgb_color_params{ 48, 2, col.red, col.green, col.blue };
 }
 
 auto cvtsw::underline(const bool new_value) -> detail::underline_params{
@@ -405,14 +410,75 @@ auto cvtsw::pixel_screen::get_color(
 
 #endif
 
-constexpr auto cvtsw::operator==(const color& a, const color& b) -> bool
+
+template<typename char_type>
+auto cvtsw::detail::get_screen_string(
+   const screen<char_type>& scr
+) -> std::basic_string<char_type>
 {
-   return a.red == b.red && a.green == b.green && a.blue == b.blue;
+   std::basic_string<char_type> result_str;
+
+   // Reserving. TODO this could be more sophisticated
+   if (scr.m_last_string_size.has_value())
+      result_str.reserve(scr.m_last_string_size.value() * 2);
+   else
+      result_str.reserve(scr.m_width * scr.m_height * 10);
+
+   cvtsw::reset_formatting().write_into(result_str);
+
+   draw_state state;
+
+   for (size_t i = 0; i < scr.m_cells.size(); ++i)
+   {
+      const auto [line, column] = std::div(static_cast<int>(i), scr.m_width);
+      const cell<char_type>& cell = scr.m_cells[i];
+
+      const auto position_lambda = [&]() {
+         cvtsw::position(scr.m_origin_line + line, scr.m_origin_column + column).write_into(result_str);
+      };
+      detail::single_hitter position_setter;
+
+      if(i==0)
+      {
+         position_setter.hit(position_lambda);
+         fg_color(cell.fg_color).write_into(result_str);
+         state.fg_color = cell.fg_color;
+         bg_color(cell.bg_color).write_into(result_str);
+         state.bg_color = cell.bg_color;
+         underline(cell.underline).write_into(result_str);
+         state.underline = cell.underline;
+      }
+      else if(scr.m_old_cells.empty() || scr.m_old_cells[i] != cell)
+      {
+         if (cell.fg_color != state.fg_color) {
+            position_setter.hit(position_lambda);
+            fg_color(cell.fg_color).write_into(result_str);
+            state.fg_color = cell.fg_color;
+         }
+         if (cell.bg_color != state.bg_color) {
+            position_setter.hit(position_lambda);
+            bg_color(cell.bg_color).write_into(result_str);
+            state.bg_color = cell.bg_color;
+         }
+         if (cell.underline != state.underline) {
+            position_setter.hit(position_lambda);
+            underline(cell.underline).write_into(result_str);
+            state.underline = cell.underline;
+         }
+      }
+      if (position_setter.m_has_fired)
+         result_str += cell.letter;
+   }
+   return result_str;
 }
 
 
 template <typename char_type>
-cvtsw::screen<char_type>::screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char)
+cvtsw::screen<char_type>::screen(
+   const int width, const int height,
+   const int start_column, const int start_line,
+   const char_type fill_char
+)
    : m_width(width)
    , m_height(height)
    , m_origin_line(start_line)
@@ -422,55 +488,15 @@ cvtsw::screen<char_type>::screen(const int width, const int height, const int st
    
 }
 
-// TODO comparison with old screen not even in, omegalul
 
 template<typename char_type>
-auto cvtsw::draw_screen(const cvtsw::screen<char_type>& new_screen) -> detail::magic<char_type>
+auto cvtsw::screen<char_type>::get_string() const -> string_type
 {
-   std::basic_string<char_type> result_str;
-   result_str.reserve(new_screen.m_width * new_screen.m_height * 10); // TODO this could be more sophisticated
-
-   result_str += cvtsw::reset_formatting();
-   result_str += cvtsw::position(new_screen.m_origin_line, new_screen.m_origin_column);
-
-   bool is_first_cell = true;
-   cell<char_type> last_state;
-   int line = 0;
-   int column = 0;
-   for(int i=0; i<new_screen.m_cells.size(); ++i)
-   {
-      const cell<char_type>& cell = new_screen.m_cells[i];
-      if(is_first_cell)
-      {
-         fg_color(cell.fg_color.red, cell.fg_color.green, cell.fg_color.blue).write_into(result_str);
-         bg_color(cell.bg_color.red, cell.bg_color.green, cell.bg_color.blue).write_into(result_str);
-         underline(cell.underline).write_into(result_str);
-      }
-      else {
-         // Without reset, colors only have to be rewritten if they changed
-         if (cell.fg_color != last_state.fg_color)
-            fg_color(cell.fg_color.red, cell.fg_color.green, cell.fg_color.blue).write_into(result_str);
-         if (cell.bg_color != last_state.bg_color)
-            bg_color(cell.bg_color.red, cell.bg_color.green, cell.bg_color.blue).write_into(result_str);
-         if (cell.underline != last_state.underline)
-            underline(cell.underline).write_into(result_str);
-      }
-
-      // TODO this could be skipped / jumped over if no other format changes
-      result_str += cell.letter;
-      ++column;
-      if (column == new_screen.m_width) {
-         position(line+1 + new_screen.m_origin_line, 0 + new_screen.m_origin_column).write_into(result_str);
-         ++line;
-         column = 0;
-      }
-
-      last_state = cell;
-      is_first_cell = false;
-   }
-   return detail::magic<char_type>{result_str};
+   string_type result = detail::get_screen_string(*this);
+   m_last_string_size = result.size();
+   m_old_cells = m_cells;
+   return result;
 }
-
 
 
 template<typename char_type>
