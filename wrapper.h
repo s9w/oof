@@ -10,6 +10,9 @@
 namespace cvtsw
 {
    template<typename T>
+   using optional_ref = std::optional<std::reference_wrapper<const T>>;
+
+   template<typename T>
    concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
 
    namespace detail {
@@ -67,7 +70,7 @@ namespace cvtsw
    [[nodiscard]] auto reset_formatting() -> detail::reset_params;
    constexpr size_t   reset_max = 3 + 1;
 
-   [[nodiscard]] auto reset_formatting()->detail::reset_params;
+   [[nodiscard]] auto reset_formatting() -> detail::reset_params;
 
    enum class color_enum {black = 30, red, green, yellow, blue, magenta, cyan, white, reset = 39 };
    [[nodiscard]] auto fg_color(const color_enum color) -> detail::enum_color_params;
@@ -138,30 +141,106 @@ namespace cvtsw
       template<cvtsw::std_string_type string_type>
       auto to_xstring(string_type& target, const int value) -> void;
 
-      struct draw_state{
-         bool underline = false;
-         color fg_color;
-         color bg_color;
+      struct cell_pos {
+         int m_index = 0;
+         int m_width = 0;
+         int m_height = 0;
+
+         explicit constexpr cell_pos(const int width, const int height)
+            : m_width(width)
+            , m_height(height)
+         {}
+         [[nodiscard]] constexpr auto get_column() const -> int {
+            return m_index % m_width;
+         }
+         [[nodiscard]] constexpr auto get_line() const -> int {
+            return m_index / m_width;
+         }
+         [[nodiscard]] constexpr auto is_end() const -> bool {
+            return m_index >= (m_width * m_height);
+         }
+         constexpr cell_pos operator+(const int jump_amount) {
+            cell_pos jumped(m_width, m_height);
+            jumped.m_index = m_index + jump_amount;
+            return jumped;
+         }
+         constexpr cell_pos& operator++() {
+            ++m_index;
+            return *this;
+         }
+         friend constexpr auto operator<=>(const cell_pos&, const cell_pos&) = default;
       };
 
       template<typename char_type>
-      [[nodiscard]] auto get_screen_string(const screen<char_type>& scr) ->std::basic_string<char_type>;
+      struct draw_state{
+         using string_type = std::basic_string<char_type>;
+         using cell_type = cell<char_type>;
 
-      // only fires once
-      
-      struct single_hitter{
-         bool m_has_fired = false;
+         string_type& m_target_string;
+         cell_pos m_last_written_pos;
 
-         template<typename lambda_type>
-         auto hit(const lambda_type& fun) -> void
+         std::optional<bool> m_underline;
+         std::optional<color> m_fg_color;
+         std::optional<color> m_bg_color;
+         
+         explicit draw_state(string_type& target, const int width, const int height)
+            : m_target_string(target)
+            , m_last_written_pos(width, height)
+         {}
+
+         auto take_complete_cell_state(const cell_type& cell) {
+            m_underline.emplace(cell.underline);
+            m_fg_color.emplace(cell.fg_color);
+            m_bg_color.emplace(cell.bg_color);
+         }
+
+         auto do_it(
+            const cell_type& target_cell_state,
+            const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
+            const cell_pos& target_pos,
+            const int origin_line,
+            const int origin_column
+         ) -> void
          {
-            if (m_has_fired)
+            if (target_cell_state == old_cell_state)
                return;
 
-            fun();
-            m_has_fired = true;
+            // Console state changes necessary, when either
+            //  1) There is no old state or
+            //  2) Target state different than old AND current state not already correct
+            if (old_cell_state.has_value() == false || (old_cell_state->get().fg_color != m_fg_color && target_cell_state.fg_color != m_fg_color))
+            {
+               fg_color(target_cell_state.fg_color).write_into(m_target_string);
+            }
+            if (old_cell_state.has_value() == false || (old_cell_state->get().bg_color != m_bg_color && target_cell_state.bg_color != m_bg_color))
+            {
+               bg_color(target_cell_state.bg_color).write_into(m_target_string);
+            }
+            if (old_cell_state.has_value() == false || (old_cell_state->get().underline != m_underline && target_cell_state.underline != m_underline))
+            {
+               underline(target_cell_state.underline).write_into(m_target_string);
+            }
+
+            // If a letter needs to be written can be neessary even if there are no console state changes.
+            // What matters for this is only if the target state is different from the previous.
+            if (target_cell_state != old_cell_state)
+            {
+               // Explicit position is only necessary if it isn't correct. And if there's a line jump.
+               if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
+                  cvtsw::position(
+                     target_pos.get_line() + origin_line,
+                     target_pos.get_column() + origin_column
+                  ).write_into(m_target_string);
+               }
+               m_target_string += target_cell_state.letter;
+               m_last_written_pos = target_pos;
+            }
+            take_complete_cell_state(target_cell_state);
          }
       };
+
+      template<typename char_type>
+      [[nodiscard]] auto get_screen_string(const screen<char_type>& scr) -> std::basic_string<char_type>;
    }
 
 } // namespace cvtsw
@@ -364,7 +443,6 @@ auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<w
          cell<wchar_t>& target_cell = result.get(column, line);
          target_cell.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
          target_cell.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
-         int end = 0;
       }
       halfline_top += 2;
       halfline_bottom += 2;
@@ -426,48 +504,21 @@ auto cvtsw::detail::get_screen_string(
 
    cvtsw::reset_formatting().write_into(result_str);
 
-   draw_state state;
+   draw_state<char_type> state{ result_str, scr.m_width, scr.m_height };
 
-   for (size_t i = 0; i < scr.m_cells.size(); ++i)
+   for (cell_pos relative_pos{scr.m_width, scr.m_height}; relative_pos.is_end() == false; ++relative_pos)
    {
-      const auto [line, column] = std::div(static_cast<int>(i), scr.m_width);
-      const cell<char_type>& cell = scr.m_cells[i];
+      const cell<char_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
+      
+      std::optional<std::reference_wrapper<const cell<char_type>>> old_cell_state;
+      if (scr.m_old_cells.empty() == false)
+         old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
 
-      const auto position_lambda = [&]() {
-         cvtsw::position(scr.m_origin_line + line, scr.m_origin_column + column).write_into(result_str);
-      };
-      detail::single_hitter position_setter;
-
-      if(i==0)
-      {
-         position_setter.hit(position_lambda);
-         fg_color(cell.fg_color).write_into(result_str);
-         state.fg_color = cell.fg_color;
-         bg_color(cell.bg_color).write_into(result_str);
-         state.bg_color = cell.bg_color;
-         underline(cell.underline).write_into(result_str);
-         state.underline = cell.underline;
-      }
-      else if(scr.m_old_cells.empty() || scr.m_old_cells[i] != cell)
-      {
-         if (cell.fg_color != state.fg_color) {
-            position_setter.hit(position_lambda);
-            fg_color(cell.fg_color).write_into(result_str);
-            state.fg_color = cell.fg_color;
-         }
-         if (cell.bg_color != state.bg_color) {
-            position_setter.hit(position_lambda);
-            bg_color(cell.bg_color).write_into(result_str);
-            state.bg_color = cell.bg_color;
-         }
-         if (cell.underline != state.underline) {
-            position_setter.hit(position_lambda);
-            underline(cell.underline).write_into(result_str);
-            state.underline = cell.underline;
-         }
-      }
-      if (position_setter.m_has_fired)
-         result_str += cell.letter;
+      state.do_it(
+         target_cell_state, old_cell_state,
+         relative_pos,
+         scr.m_origin_line, scr.m_origin_column
+      );
    }
    return result_str;
 }
