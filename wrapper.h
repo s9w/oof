@@ -42,10 +42,7 @@ namespace cvtsw
    concept sequence_c = any_of_c<T, fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
    using sequence_variant_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
 
-   template<typename stream_type, cvtsw::sequence_c sequence_type>
-   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
-
-
+   // Generators of sequences
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_color_sequence;
    [[nodiscard]] auto fg_color(const color& col) -> fg_color_sequence;
    constexpr size_t   fg_color_max = 3 + 16;
@@ -69,7 +66,8 @@ namespace cvtsw
    [[nodiscard]] auto reset_formatting() -> reset_sequence;
    constexpr size_t   reset_max = 3 + 1;
 
-
+   template<typename stream_type, cvtsw::sequence_c sequence_type>
+   auto operator<<(stream_type& os, const sequence_type& sequence)->stream_type&;
 
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_into_string(string_type& target, const sequence_type& sequence) -> void;
@@ -94,7 +92,6 @@ namespace cvtsw
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
-      mutable std::optional<size_t> m_last_string_size;
       std::vector<cell<string_type>> m_cells;
       mutable std::vector<cell<string_type>> m_old_cells;
 
@@ -155,10 +152,10 @@ namespace cvtsw
          [[nodiscard]] constexpr auto is_end() const -> bool {
             return m_index >= (m_width * m_height);
          }
-         constexpr cell_pos operator+(const int jump_amount) {
-            cell_pos jumped(m_width, m_height);
-            jumped.m_index = m_index + jump_amount;
-            return jumped;
+         constexpr cell_pos operator+(const int jump_amount) const {
+            cell_pos jumped_pos(m_width, m_height);
+            jumped_pos.m_index = m_index + jump_amount;
+            return jumped_pos;
          }
          constexpr cell_pos& operator++() {
             ++m_index;
@@ -240,8 +237,6 @@ namespace cvtsw
          }
       };
 
-      template<cvtsw::std_string_type string_type>
-      [[nodiscard]] auto get_screen_string(const screen<string_type>& scr) -> string_type;
 
       template<cvtsw::std_string_type string_type, typename T>
       auto write_into_string(
@@ -522,32 +517,48 @@ auto cvtsw::pixel_screen::get_color(
 
 #endif
 
+
+
 template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::get_screen_string(
-   const screen<string_type>& scr
-) -> string_type
+cvtsw::screen<string_type>::screen(
+   const int width, const int height,
+   const int start_column, const int start_line,
+   const char_type fill_char
+)
+   : m_width(width)
+   , m_height(height)
+   , m_origin_line(start_line)
+   , m_origin_column(start_column)
+   , m_cells(m_width * m_height, cell<string_type>{fill_char})
+{
+   
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_string() const -> string_type
 {
    std::vector<sequence_variant_type> sequences;
-   sequences.reserve(scr.m_width * scr.m_height * 10);
+   sequences.reserve(this->m_width * this->m_height * 10);
    size_t reserve_size = 0;
 
-   draw_state<string_type> state{ sequences, scr.m_width, scr.m_height };
+   detail::draw_state<string_type> state{ sequences, this->m_width, this->m_height };
 
    {
       ZoneScopedN("sequences");
       sequences.push_back(reset_sequence{});
-      for (cell_pos relative_pos{ scr.m_width, scr.m_height }; relative_pos.is_end() == false; ++relative_pos)
+      for (detail::cell_pos relative_pos{ this->m_width, this->m_height }; relative_pos.is_end() == false; ++relative_pos)
       {
-         const cell<string_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
+         const cell<string_type>& target_cell_state = this->m_cells[relative_pos.m_index];
 
          std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
-         if (scr.m_old_cells.empty() == false)
-            old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
+         if (this->m_old_cells.empty() == false)
+            old_cell_state.emplace(this->m_old_cells[relative_pos.m_index]);
 
          reserve_size += state.write_sequence(
             target_cell_state, old_cell_state,
             relative_pos,
-            scr.m_origin_line, scr.m_origin_column
+            this->m_origin_line, this->m_origin_column
          );
       }
    }
@@ -578,33 +589,9 @@ auto cvtsw::detail::get_screen_string(
          std::visit([&](const auto& alternative) {visitor(alternative); }, sequence);
       }
    }
-   return result_str;
-}
 
-
-template<cvtsw::std_string_type string_type>
-cvtsw::screen<string_type>::screen(
-   const int width, const int height,
-   const int start_column, const int start_line,
-   const char_type fill_char
-)
-   : m_width(width)
-   , m_height(height)
-   , m_origin_line(start_line)
-   , m_origin_column(start_column)
-   , m_cells(m_width * m_height, cell<string_type>{fill_char})
-{
-   
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_string() const -> string_type
-{
-   string_type result = detail::get_screen_string(*this);
-   m_last_string_size = result.size();
    m_old_cells = m_cells;
-   return result;
+   return result_str;
 }
 
 
