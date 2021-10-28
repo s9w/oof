@@ -3,6 +3,7 @@
 #include <string>
 #include <optional>
 #include <vector>
+#include <variant>
 
 #include <cvt/wbuffer>
 
@@ -74,8 +75,6 @@ namespace cvtsw
 
    enum class color_enum {black = 30, red, green, yellow, blue, magenta, cyan, white, reset = 39 };
    [[nodiscard]] auto fg_color(const color_enum color) -> detail::enum_color_params;
-
-
 
    template<typename char_type>
    struct cell {
@@ -171,20 +170,29 @@ namespace cvtsw
          friend constexpr auto operator<=>(const cell_pos&, const cell_pos&) = default;
       };
 
+      struct fg_color_sequence { color m_color; };
+      struct bg_color_sequence { color m_color; };
+      struct underline_sequence { bool m_underline; };
+      struct position_sequence { int m_line; int m_column; };
+      struct char_sequence { char m_letter; };
+      struct wchar_sequence { wchar_t m_letter; };
+      struct reset_sequence {  };
+      using sequence_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
+
       template<typename char_type>
       struct draw_state{
-         using string_type = std::basic_string<char_type>;
+         //using string_type = std::basic_string<char_type>;
          using cell_type = cell<char_type>;
 
-         string_type& m_target_string;
+         std::vector<sequence_type>& m_target_sequences;
          cell_pos m_last_written_pos;
 
          std::optional<bool> m_underline;
          std::optional<color> m_fg_color;
          std::optional<color> m_bg_color;
          
-         explicit draw_state(string_type& target, const int width, const int height)
-            : m_target_string(target)
+         explicit draw_state(std::vector<sequence_type>& target_sequence, const int width, const int height)
+            : m_target_sequences(target_sequence)
             , m_last_written_pos(width, height)
          {}
 
@@ -194,48 +202,48 @@ namespace cvtsw
             m_bg_color.emplace(cell.bg_color);
          }
 
-         auto do_it(
+         auto write_sequence(
             const cell_type& target_cell_state,
             const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
             const cell_pos& target_pos,
             const int origin_line,
             const int origin_column
-         ) -> void
+         ) -> size_t
          {
+            size_t cell_reserve_size = 0;
             if (target_cell_state == old_cell_state)
-               return;
+               return cell_reserve_size;
 
-            // Console state changes necessary, when either
-            //  1) There is no old state or
-            //  2) Target state different than old AND current state not already correct
-            if (old_cell_state.has_value() == false || (old_cell_state->get().fg_color != m_fg_color && target_cell_state.fg_color != m_fg_color))
+            // Apply differences between console state and the target state
+            if (target_cell_state.fg_color != m_fg_color)
             {
-               fg_color(target_cell_state.fg_color).write_into(m_target_string);
+               m_target_sequences.push_back(fg_color_sequence{ target_cell_state.fg_color });
+               cell_reserve_size += fg_color_max;
             }
-            if (old_cell_state.has_value() == false || (old_cell_state->get().bg_color != m_bg_color && target_cell_state.bg_color != m_bg_color))
+            if (target_cell_state.bg_color != m_bg_color)
             {
-               bg_color(target_cell_state.bg_color).write_into(m_target_string);
+               m_target_sequences.push_back(bg_color_sequence{ target_cell_state.bg_color });
+               cell_reserve_size += bg_color_max;
             }
-            if (old_cell_state.has_value() == false || (old_cell_state->get().underline != m_underline && target_cell_state.underline != m_underline))
+            if (target_cell_state.underline != m_underline)
             {
-               underline(target_cell_state.underline).write_into(m_target_string);
+               m_target_sequences.push_back(underline_sequence{ target_cell_state.underline });
+               cell_reserve_size += underline_max;
             }
 
-            // If a letter needs to be written can be neessary even if there are no console state changes.
-            // What matters for this is only if the target state is different from the previous.
-            if (target_cell_state != old_cell_state)
-            {
-               // Explicit position is only necessary if it isn't correct. And if there's a line jump.
-               if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
-                  cvtsw::position(
-                     target_pos.get_line() + origin_line,
-                     target_pos.get_column() + origin_column
-                  ).write_into(m_target_string);
-               }
-               m_target_string += target_cell_state.letter;
-               m_last_written_pos = target_pos;
+            if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
+               m_target_sequences.push_back(position_sequence{ target_pos.get_line() + origin_line, target_pos.get_column() + origin_column });
+               cell_reserve_size += position_max;
             }
+            if constexpr (std::is_same_v<char_type, char>)
+               m_target_sequences.push_back(char_sequence{ target_cell_state.letter });
+            else
+               m_target_sequences.push_back(wchar_sequence{ target_cell_state.letter });
+            cell_reserve_size += 1;
+            m_last_written_pos = target_pos;
             take_complete_cell_state(target_cell_state);
+
+            return cell_reserve_size;
          }
       };
 
@@ -494,31 +502,50 @@ auto cvtsw::detail::get_screen_string(
    const screen<char_type>& scr
 ) -> std::basic_string<char_type>
 {
-   std::basic_string<char_type> result_str;
+   std::vector<sequence_type> sequences;
+   sequences.reserve(scr.m_width * scr.m_height * 10);
+   size_t reserve_size = 0;
 
-   // Reserving. TODO this could be more sophisticated
-   if (scr.m_last_string_size.has_value())
-      result_str.reserve(scr.m_last_string_size.value() * 2);
-   else
-      result_str.reserve(scr.m_width * scr.m_height * 10);
+   draw_state<char_type> state{ sequences, scr.m_width, scr.m_height };
 
-   cvtsw::reset_formatting().write_into(result_str);
-
-   draw_state<char_type> state{ result_str, scr.m_width, scr.m_height };
-
-   for (cell_pos relative_pos{scr.m_width, scr.m_height}; relative_pos.is_end() == false; ++relative_pos)
+   sequences.push_back(reset_sequence{});
+   for (cell_pos relative_pos{ scr.m_width, scr.m_height }; relative_pos.is_end() == false; ++relative_pos)
    {
       const cell<char_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
-      
+
       std::optional<std::reference_wrapper<const cell<char_type>>> old_cell_state;
       if (scr.m_old_cells.empty() == false)
          old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
 
-      state.do_it(
+      reserve_size += state.write_sequence(
          target_cell_state, old_cell_state,
          relative_pos,
          scr.m_origin_line, scr.m_origin_column
       );
+   }
+   std::basic_string<char_type> result_str;
+   result_str.reserve(reserve_size);
+
+   const auto visitor = [&]<typename T>(const T& alternative) {
+      if constexpr (std::is_same_v<T, fg_color_sequence>)
+         fg_color(alternative.m_color).write_into(result_str);
+      else if constexpr (std::is_same_v<T, bg_color_sequence>)
+         bg_color(alternative.m_color).write_into(result_str);
+      else if constexpr (std::is_same_v<T, underline_sequence>)
+         underline(alternative.m_underline).write_into(result_str);
+      else if constexpr (std::is_same_v<T, position_sequence>)
+         position(alternative.m_line, alternative.m_column).write_into(result_str);
+      else if constexpr (std::is_same_v<T, reset_sequence>)
+         reset_formatting().write_into(result_str);
+
+      else if constexpr (std::is_same_v<char_type, char> && std::is_same_v<T, char_sequence>)
+         result_str += alternative.m_letter;
+      else if constexpr (std::is_same_v<char_type, wchar_t> && std::is_same_v<T, wchar_sequence>)
+         result_str += alternative.m_letter;
+   };
+   
+   for (const sequence_type& sequence : sequences) {
+      std::visit([&](const auto& alternative) {visitor(alternative); }, sequence);
    }
    return result_str;
 }
