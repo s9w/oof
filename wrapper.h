@@ -10,6 +10,7 @@
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #else
+#define ZoneScoped
 #define ZoneScopedN(x)
 #endif
 
@@ -76,15 +77,20 @@ namespace cvtsw
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
 
+
+   struct formatting_state {
+      bool underline = false;
+      color fg_color;
+      color bg_color;
+      friend constexpr auto operator<=>(const formatting_state&, const formatting_state&) = default;
+   };
+
    template<cvtsw::std_string_type string_type>
    struct cell {
       using char_type = typename string_type::value_type;
 
       char_type letter{};
-      bool underline = false;
-      color fg_color;
-      color bg_color;
-
+      formatting_state m_format;
       friend constexpr auto operator<=>(const cell&, const cell&) = default;
    };
 
@@ -101,6 +107,7 @@ namespace cvtsw
 
       explicit screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char);
       [[nodiscard]] auto get_index(const int column, const int line) const -> size_t;
+      [[nodiscard]] auto get_sequences() const -> std::vector<sequence_variant_type>;
       [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
@@ -181,51 +188,47 @@ namespace cvtsw
       struct draw_state{
          using cell_type = cell<string_type>;
 
-         std::vector<sequence_variant_type>& m_target_sequences;
          cell_pos m_last_written_pos;
 
-         std::optional<bool> m_underline;
-         std::optional<color> m_fg_color;
-         std::optional<color> m_bg_color;
+         std::optional<formatting_state> m_format;
          
-         explicit draw_state(std::vector<sequence_variant_type>& target_sequence, const int width, const int height)
-            : m_target_sequences(target_sequence)
-            , m_last_written_pos(width, height)
+         explicit draw_state(const int width, const int height)
+            : m_last_written_pos(width, height)
          {}
 
-         auto take_complete_cell_state(const cell_type& cell) {
-            m_underline.emplace(cell.underline);
-            m_fg_color.emplace(cell.fg_color);
-            m_bg_color.emplace(cell.bg_color);
-         }
-
          auto write_sequence(
+            std::vector<sequence_variant_type>& m_target_sequences,
             const cell_type& target_cell_state,
             const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
             const cell_pos& target_pos,
             const int origin_line,
             const int origin_column
-         ) -> size_t
+         ) -> void
          {
-            size_t cell_reserve_size = 0;
+            // As long as there's no difference from last draw, don't do anything 
             if (target_cell_state == old_cell_state)
-               return cell_reserve_size;
+               return;
 
-            // Apply differences between console state and the target state
-            if (target_cell_state.fg_color != m_fg_color)
-            {
-               m_target_sequences.push_back(fg_color_sequence{ target_cell_state.fg_color });
-               cell_reserve_size += fg_color_max;
+            if (m_format.has_value() == false) {
+               m_target_sequences.push_back(fg_color_sequence{ target_cell_state.m_format.fg_color });
+               m_target_sequences.push_back(bg_color_sequence{ target_cell_state.m_format.bg_color });
+               m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
             }
-            if (target_cell_state.bg_color != m_bg_color)
-            {
-               m_target_sequences.push_back(bg_color_sequence{ target_cell_state.bg_color });
-               cell_reserve_size += bg_color_max;
-            }
-            if (target_cell_state.underline != m_underline)
-            {
-               m_target_sequences.push_back(underline_sequence{ target_cell_state.underline });
-               cell_reserve_size += underline_max;
+            else {
+
+               // Apply differences between console state and the target state
+               if (target_cell_state.m_format.fg_color != m_format->fg_color)
+               {
+                  m_target_sequences.push_back(fg_color_sequence{ target_cell_state.m_format.fg_color });
+               }
+               if (target_cell_state.m_format.bg_color != m_format->bg_color)
+               {
+                  m_target_sequences.push_back(bg_color_sequence{ target_cell_state.m_format.bg_color });
+               }
+               if (target_cell_state.m_format.underline != m_format->underline)
+               {
+                  m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
+               }
             }
 
             if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
@@ -235,17 +238,20 @@ namespace cvtsw
                      static_cast<uint8_t>(target_pos.get_column() + origin_column)
                   }
                );
-               cell_reserve_size += position_max;
             }
+
             if constexpr (std::is_same_v<string_type, std::string>)
                m_target_sequences.push_back(char_sequence{ target_cell_state.letter });
             else
                m_target_sequences.push_back(wchar_sequence{ target_cell_state.letter });
-            cell_reserve_size += 1;
+
             m_last_written_pos = target_pos;
             take_complete_cell_state(target_cell_state);
+         }
 
-            return cell_reserve_size;
+      private:
+         auto take_complete_cell_state(const cell_type& cell) {
+            m_format.emplace(cell.m_format);
          }
       };
 
@@ -286,19 +292,13 @@ auto cvtsw::write_sequence_into_string(
    const sequence_type& sequence
 ) -> void
 {
-   detail::reserve_string_for_sequence(target, sequence);
-
-   using char_type = typename string_type::value_type;
-   //static_assert(); // TODO char type
-
    if constexpr (std::is_same_v<sequence_type, fitting_char_sequence_t<string_type>>)
    {
       target += sequence.m_letter;
-      return;
    }
    else
    {
-      
+      using char_type = typename string_type::value_type;
       if constexpr (std::same_as<string_type, std::string>)
          target += "\x1b[";
       else
@@ -435,39 +435,50 @@ cvtsw::screen<string_type>::screen(
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_string() const -> string_type
+auto cvtsw::screen<string_type>::get_sequences() const -> std::vector<sequence_variant_type>
 {
+   ZoneScoped;
    std::vector<sequence_variant_type> sequences;
    sequences.reserve(this->m_width * this->m_height * 10);
-   size_t reserve_size = 0;
 
-   detail::draw_state<string_type> state{ sequences, this->m_width, this->m_height };
+   detail::draw_state<string_type> state{ this->m_width, this->m_height };
+   sequences.push_back(reset_sequence{});
 
+   for (detail::cell_pos relative_pos{ this->m_width, this->m_height }; relative_pos.is_end() == false; ++relative_pos)
    {
-      ZoneScopedN("sequences");
-      sequences.push_back(reset_sequence{});
-      for (detail::cell_pos relative_pos{ this->m_width, this->m_height }; relative_pos.is_end() == false; ++relative_pos)
-      {
-         const cell<string_type>& target_cell_state = this->m_cells[relative_pos.m_index];
+      const cell<string_type>& target_cell_state = this->m_cells[relative_pos.m_index];
 
-         std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
-         if (this->m_old_cells.empty() == false)
-            old_cell_state.emplace(this->m_old_cells[relative_pos.m_index]);
+      std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
+      if (this->m_old_cells.empty() == false)
+         old_cell_state.emplace(this->m_old_cells[relative_pos.m_index]);
 
-         reserve_size += state.write_sequence(
-            target_cell_state, old_cell_state,
-            relative_pos,
-            this->m_origin_line, this->m_origin_column
-         );
-      }
+      state.write_sequence(
+         sequences,
+         target_cell_state, old_cell_state,
+         relative_pos,
+         this->m_origin_line, this->m_origin_column
+      );
    }
+   return sequences;
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_string() const -> string_type
+{
+   ZoneScopedN("screen::get_string()");
+   const std::vector<sequence_variant_type> sequences = get_sequences();
+
+   size_t reserve_size{};
+   for (const auto& sequence : sequences)
+      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
+
    string_type result_str;
+   result_str.reserve(reserve_size);
    {
-      ZoneScopedN("sequence to string");
-      result_str.reserve(reserve_size);
-      for (const sequence_variant_type& sequence : sequences) {
+      ZoneScopedN("writing sequence into string");
+      for (const sequence_variant_type& sequence : sequences)
          std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
-      }
    }
 
    m_old_cells = m_cells;
@@ -586,8 +597,8 @@ auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<s
    for (int line = 0; line < result.m_height; ++line) {
       for (int column = 0; column < result.m_width; ++column) {
          cell<std::wstring>& target_cell = result.get(column, line);
-         target_cell.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
-         target_cell.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
+         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
+         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
       }
       halfline_top += 2;
       halfline_bottom += 2;
