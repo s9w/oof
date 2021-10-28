@@ -7,6 +7,11 @@
 
 #include <cvt/wbuffer>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#else
+#define ZoneScopedN(x)
+#endif
 
 namespace cvtsw
 {
@@ -30,11 +35,11 @@ namespace cvtsw
 
    // TODO maybe sequences type that keeps track of precise reserve amount?
 
+   template<typename T, typename ... Ts>
+   concept any_of_c = (std::is_same_v<T, Ts> || ...);
+
    template<typename T>
-   concept sequence_c = std::is_same_v<T, fg_color_sequence> || std::is_same_v<T, bg_color_sequence> ||
-      std::is_same_v<T, underline_sequence> || std::is_same_v<T, position_sequence> ||
-      std::is_same_v<T, char_sequence> || std::is_same_v<T, wchar_sequence> ||
-      std::is_same_v<T, reset_sequence>;
+   concept sequence_c = any_of_c<T, fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
    using sequence_variant_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
 
    template<typename stream_type, cvtsw::sequence_c sequence_type>
@@ -517,7 +522,6 @@ auto cvtsw::pixel_screen::get_color(
 
 #endif
 
-
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::get_screen_string(
    const screen<string_type>& scr
@@ -529,44 +533,50 @@ auto cvtsw::detail::get_screen_string(
 
    draw_state<string_type> state{ sequences, scr.m_width, scr.m_height };
 
-   sequences.push_back(reset_sequence{});
-   for (cell_pos relative_pos{ scr.m_width, scr.m_height }; relative_pos.is_end() == false; ++relative_pos)
    {
-      const cell<string_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
+      ZoneScopedN("sequences");
+      sequences.push_back(reset_sequence{});
+      for (cell_pos relative_pos{ scr.m_width, scr.m_height }; relative_pos.is_end() == false; ++relative_pos)
+      {
+         const cell<string_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
 
-      std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
-      if (scr.m_old_cells.empty() == false)
-         old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
+         std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
+         if (scr.m_old_cells.empty() == false)
+            old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
 
-      reserve_size += state.write_sequence(
-         target_cell_state, old_cell_state,
-         relative_pos,
-         scr.m_origin_line, scr.m_origin_column
-      );
+         reserve_size += state.write_sequence(
+            target_cell_state, old_cell_state,
+            relative_pos,
+            scr.m_origin_line, scr.m_origin_column
+         );
+      }
    }
    string_type result_str;
-   result_str.reserve(reserve_size);
+   {
+      ZoneScopedN("sequence to string");
+      result_str.reserve(reserve_size);
 
-   const auto visitor = [&]<typename T>(const T& alternative) {
-      if constexpr (std::is_same_v<T, fg_color_sequence>)
-         ::cvtsw::write_into_string(result_str, fg_color(alternative.m_color));
-      else if constexpr (std::is_same_v<T, bg_color_sequence>)
-         cvtsw::write_into_string(result_str, bg_color(alternative.m_color));
-      else if constexpr (std::is_same_v<T, underline_sequence>)
-         cvtsw::write_into_string(result_str, underline(alternative.m_underline));
-      else if constexpr (std::is_same_v<T, position_sequence>)
-         cvtsw::write_into_string(result_str, position(alternative.m_line, alternative.m_column));
-      else if constexpr (std::is_same_v<T, reset_sequence>)
-         cvtsw::write_into_string(result_str, reset_formatting());
+      const auto visitor = [&]<typename T>(const T & alternative) {
+         if constexpr (std::is_same_v<T, fg_color_sequence>)
+            ::cvtsw::write_into_string(result_str, fg_color(alternative.m_color));
+         else if constexpr (std::is_same_v<T, bg_color_sequence>)
+            cvtsw::write_into_string(result_str, bg_color(alternative.m_color));
+         else if constexpr (std::is_same_v<T, underline_sequence>)
+            cvtsw::write_into_string(result_str, underline(alternative.m_underline));
+         else if constexpr (std::is_same_v<T, position_sequence>)
+            cvtsw::write_into_string(result_str, position(alternative.m_line, alternative.m_column));
+         else if constexpr (std::is_same_v<T, reset_sequence>)
+            cvtsw::write_into_string(result_str, reset_formatting());
 
-      else if constexpr (std::is_same_v<string_type, std::string> && std::is_same_v<T, char_sequence>)
-         result_str += alternative.m_letter;
-      else if constexpr (std::is_same_v<string_type, std::wstring> && std::is_same_v<T, wchar_sequence>)
-         result_str += alternative.m_letter;
-   };
-   
-   for (const sequence_variant_type& sequence : sequences) {
-      std::visit([&](const auto& alternative) {visitor(alternative); }, sequence);
+         else if constexpr (std::is_same_v<string_type, std::string> && std::is_same_v<T, char_sequence>)
+            result_str += alternative.m_letter;
+         else if constexpr (std::is_same_v<string_type, std::wstring> && std::is_same_v<T, wchar_sequence>)
+            result_str += alternative.m_letter;
+      };
+
+      for (const sequence_variant_type& sequence : sequences) {
+         std::visit([&](const auto& alternative) {visitor(alternative); }, sequence);
+      }
    }
    return result_str;
 }
