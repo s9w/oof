@@ -11,34 +11,7 @@
 namespace cvtsw
 {
    template<typename T>
-   using optional_ref = std::optional<std::reference_wrapper<const T>>;
-
-   template<typename T>
    concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
-
-   namespace detail {
-      template<char ending, int param_count>
-      struct param_holder {
-         int m_start_params[param_count];
-
-         template<typename ... Ts>
-         constexpr explicit param_holder(const Ts... params);
-
-         template<cvtsw::std_string_type string_type>
-         operator string_type() const;
-
-         template<cvtsw::std_string_type string_type>
-         auto write_into(string_type& target) const;
-      };
-
-      using pos_params = param_holder<'H', 2>;
-      using hpos_params = param_holder<'G', 1>;
-      using vpos_params = param_holder<'d', 1>;
-      using underline_params = param_holder<'m', 1>;
-      using reset_params = param_holder<'m', 1>;
-      using rgb_color_params = param_holder<'m', 5>;
-      using enum_color_params = param_holder<'m', 1>;
-   }
 
    struct color {
       uint8_t red = 0ui8;
@@ -46,35 +19,50 @@ namespace cvtsw
       uint8_t blue = 0ui8;
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
-   
 
-   [[nodiscard]] auto position(const int line, const int column) -> detail::pos_params;
-   constexpr size_t   position_max = 3 + 2*3+1;
+   struct fg_color_sequence { color m_color; };
+   struct bg_color_sequence { color m_color; };
+   struct underline_sequence { bool m_underline; };
+   struct position_sequence { int m_line; int m_column; };
+   struct char_sequence { char m_letter; };
+   struct wchar_sequence { wchar_t m_letter; };
+   struct reset_sequence { };
 
-   [[nodiscard]] auto vposition(const int line) -> detail::vpos_params;
-   constexpr size_t   vposition_max = 3 + 3;
+   // TODO maybe sequences type that keeps track of precise reserve amount?
 
-   [[nodiscard]] auto hposition(const int column) -> detail::hpos_params;
-   constexpr size_t   hposition_max = 3 + 3;
+   template<typename T>
+   concept sequence_c = std::is_same_v<T, fg_color_sequence> || std::is_same_v<T, bg_color_sequence> ||
+      std::is_same_v<T, underline_sequence> || std::is_same_v<T, position_sequence> ||
+      std::is_same_v<T, char_sequence> || std::is_same_v<T, wchar_sequence> ||
+      std::is_same_v<T, reset_sequence>;
+   using sequence_variant_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
 
-   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> detail::rgb_color_params;
-   [[nodiscard]] auto fg_color(const color& col) -> detail::rgb_color_params;
+
+   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_color_sequence;
+   [[nodiscard]] auto fg_color(const color& col) -> fg_color_sequence;
    constexpr size_t   fg_color_max = 3 + 16;
 
-   [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> detail::rgb_color_params;
-   [[nodiscard]] auto bg_color(const color& col) -> detail::rgb_color_params;
+   [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_color_sequence;
+   [[nodiscard]] auto bg_color(const color& col) -> bg_color_sequence;
    constexpr size_t   bg_color_max = 3 + 16;
-
-   [[nodiscard]] auto underline(const bool new_value = true) -> detail::underline_params;
+   
+   [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
    constexpr size_t   underline_max = 3 + 2;
 
-   [[nodiscard]] auto reset_formatting() -> detail::reset_params;
+   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
+   constexpr size_t   position_max = 3 + 2*3+1;
+
+   //[[nodiscard]] auto vposition(const int line) -> detail::vpos_params;
+   //constexpr size_t   vposition_max = 3 + 3;
+
+   //[[nodiscard]] auto hposition(const int column) -> detail::hpos_params;
+   //constexpr size_t   hposition_max = 3 + 3;
+
+   [[nodiscard]] auto reset_formatting() -> reset_sequence;
    constexpr size_t   reset_max = 3 + 1;
 
-   [[nodiscard]] auto reset_formatting() -> detail::reset_params;
-
-   enum class color_enum {black = 30, red, green, yellow, blue, magenta, cyan, white, reset = 39 };
-   [[nodiscard]] auto fg_color(const color_enum color) -> detail::enum_color_params;
+   template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
+   auto write_into_string(string_type& target, const sequence_type& sequence) -> void;
 
    template<typename char_type>
    struct cell {
@@ -120,21 +108,19 @@ namespace cvtsw
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
       [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
    };
+
+
+   template<typename stream_type, cvtsw::sequence_c sequence_type>
+   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
    
 
    namespace detail
    {
-      template<typename stream_type, char ending, int param_count>
-      auto operator<<(stream_type& os, const detail::param_holder<ending, param_count>& value) -> stream_type&;
-
       template<cvtsw::std_string_type string_type>
       auto reserve_size(string_type& target, const size_t needed_size) -> void;
 
-      template<cvtsw::std_string_type string_type, char ending, int param_count>
-      auto write_to_string(string_type& target, const detail::param_holder<ending, param_count>& value) -> void;
-
-      template<int n>
-      [[nodiscard]] constexpr auto get_reserve_size(const int(& ary)[n]) -> size_t;
+      template<cvtsw::sequence_c sequence_type>
+      [[nodiscard]] constexpr auto get_reserve_size(const sequence_type& sequence) -> size_t;
 
       // std::to_string() or std::to_wstring() depending on the template type
       template<cvtsw::std_string_type string_type>
@@ -170,28 +156,20 @@ namespace cvtsw
          friend constexpr auto operator<=>(const cell_pos&, const cell_pos&) = default;
       };
 
-      struct fg_color_sequence { color m_color; };
-      struct bg_color_sequence { color m_color; };
-      struct underline_sequence { bool m_underline; };
-      struct position_sequence { int m_line; int m_column; };
-      struct char_sequence { char m_letter; };
-      struct wchar_sequence { wchar_t m_letter; };
-      struct reset_sequence {  };
-      using sequence_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
 
       template<typename char_type>
       struct draw_state{
          //using string_type = std::basic_string<char_type>;
          using cell_type = cell<char_type>;
 
-         std::vector<sequence_type>& m_target_sequences;
+         std::vector<sequence_variant_type>& m_target_sequences;
          cell_pos m_last_written_pos;
 
          std::optional<bool> m_underline;
          std::optional<color> m_fg_color;
          std::optional<color> m_bg_color;
          
-         explicit draw_state(std::vector<sequence_type>& target_sequence, const int width, const int height)
+         explicit draw_state(std::vector<sequence_variant_type>& target_sequence, const int width, const int height)
             : m_target_sequences(target_sequence)
             , m_last_written_pos(width, height)
          {}
@@ -249,15 +227,82 @@ namespace cvtsw
 
       template<typename char_type>
       [[nodiscard]] auto get_screen_string(const screen<char_type>& scr) -> std::basic_string<char_type>;
-   }
+
+      template<cvtsw::std_string_type string_type, typename T>
+      auto write_into_string(
+         string_type& target,
+         const T& last
+      ) -> void
+      {
+         detail::to_xstring(target, last);;
+      }
+
+
+      template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
+      auto write_into_string(
+         string_type& target,
+         const T& first,
+         const Ts&... rest
+      ) -> void
+      {
+         detail::to_xstring(target, first);
+
+         using char_type = typename string_type::value_type;
+         target += static_cast<char_type>(';');
+
+         write_into_string(target, rest...);
+      }
+
+   } // namespace cvtsw::detail
 
 } // namespace cvtsw
 
 
-template<int n>
-[[nodiscard]] constexpr auto cvtsw::detail::get_reserve_size(const int(& ary)[n])->size_t
+template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
+auto cvtsw::write_into_string(
+   string_type& target,
+   const sequence_type& sequence
+) -> void
 {
-   auto get_int_param_str_length = [](const int param) {
+   // TODO reserve????
+   using char_type = typename string_type::value_type;
+   if constexpr (std::same_as<string_type, std::string>)
+      target += "\x1b[";
+   else
+      target += L"\x1b[";
+
+   if constexpr (std::is_same_v<sequence_type, fg_color_sequence>)
+   {
+      detail::write_into_string(target, 38, 2, sequence.m_color.red, sequence.m_color.green, sequence.m_color.blue);
+      target += static_cast<char_type>('m');
+   }
+   else if constexpr (std::is_same_v<sequence_type, bg_color_sequence>)
+   {
+      detail::write_into_string(target, 48, 2, sequence.m_color.red, sequence.m_color.green, sequence.m_color.blue);
+      target += static_cast<char_type>('m');
+   }
+   else if constexpr (std::is_same_v<sequence_type, underline_sequence>)
+   {
+      detail::write_into_string(target, sequence.m_underline ? 4 : 24);
+      target += static_cast<char_type>('m');
+   }
+   else if constexpr (std::is_same_v<sequence_type, position_sequence>)
+   {
+      detail::write_into_string(target, sequence.m_line, sequence.m_column);
+      target += static_cast<char_type>('H');
+   }
+   else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
+   {
+      detail::write_into_string(target, 0);
+      target += static_cast<char_type>('m');
+   }
+}
+
+
+template<cvtsw::sequence_c sequence_type>
+[[nodiscard]] constexpr auto cvtsw::detail::get_reserve_size(const sequence_type& sequence) -> size_t
+{
+   constexpr auto get_int_param_str_length = [](const int param) {
       if (param < 10)
          return 1;
       if (param < 100)
@@ -266,10 +311,27 @@ template<int n>
    };
 
    size_t reserve_size = 0;
-   for (const int element : ary)
-      reserve_size += get_int_param_str_length(element);
+   constexpr int semicolon_size = 1;
+   if constexpr (std::is_same_v<sequence_type, fg_color_sequence> || std::is_same_v<sequence_type, fg_color_sequence>) {
+      reserve_size += 2 + semicolon_size + 1 +
+         semicolon_size + get_int_param_str_length(sequence.m_color.red) +
+         semicolon_size + get_int_param_str_length(sequence.m_color.green) +
+         semicolon_size + get_int_param_str_length(sequence.m_color.blue);
+   }
+   else if constexpr (std::is_same_v<sequence_type, underline_sequence>)
+   {
+      reserve_size += sequence.m_underline ? 1 : 2;
+   }
+   else if constexpr (std::is_same_v<sequence_type, position_sequence>)
+   {
+      reserve_size += get_int_param_str_length(sequence.m_line) + semicolon_size + get_int_param_str_length(sequence.m_column);
+   }
+   else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
+   {
+      reserve_size += 1;
+   }
 
-   reserve_size += n-1; // semicolons
+   //reserve_size += n-1; // semicolons
    reserve_size += 3; // 2 intro, 1 outro
    return reserve_size;
 }
@@ -282,49 +344,6 @@ auto cvtsw::detail::to_xstring(string_type& target, const int value) -> void
       target += std::to_string(value);
    else
       target += std::to_wstring(value);
-}
-
-
-template<char ending, int param_count>
-template<cvtsw::std_string_type string_type>
-cvtsw::detail::param_holder<ending, param_count>::operator string_type() const
-{
-   string_type result;
-   reserve_size(result, get_reserve_size(m_start_params));
-   detail::write_to_string(result, *this);
-   return result;
-}
-
-
-template<char ending, int param_count>
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::param_holder<ending, param_count>::write_into(string_type& target) const
-{
-   reserve_size(target, get_reserve_size(m_start_params));
-   detail::write_to_string(target, *this);
-}
-
-
-template<cvtsw::std_string_type string_type, char ending, int param_count>
-auto cvtsw::detail::write_to_string(
-   string_type& target,
-   const detail::param_holder<ending, param_count>& value
-) -> void
-{
-   using char_type = typename string_type::value_type;
-   if constexpr (std::same_as<string_type, std::string>)
-      target += "\x1b[";
-   else
-      target += L"\x1b[";
-   for (int i = 0; i < param_count; ++i)
-   {
-      to_xstring(target, value.m_start_params[i]);
-
-      // Semicolon between parameters
-      if (i != (param_count - 1))
-         target += static_cast<char_type>(';');
-   }
-   target += ending;
 }
 
 
@@ -342,83 +361,71 @@ auto cvtsw::detail::reserve_size(
 }
 
 
-template<typename stream_type, char ending, int param_count>
-auto cvtsw::detail::operator<<(
-   stream_type& os,
-   const param_holder<ending, param_count>& value
-) -> stream_type&
+template<typename stream_type, cvtsw::sequence_c sequence_type>
+auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&
 {
-   // Stream operation is _massively_ slow, therefore write to string and stream that in one go
-
    using char_type = typename stream_type::char_type;
    using string_type = std::basic_string<char_type>;
-
    string_type temp;
-   detail::reserve_size(temp, detail::get_reserve_size(value.m_start_params));
-   detail::write_to_string(temp, value);
+   detail::reserve_size(temp, detail::get_reserve_size(sequence));
+   write_into_string(temp, sequence);
    os << temp;
    return os;
 }
 
 
-template<char ending, int param_count>
-template<typename ... Ts>
-constexpr cvtsw::detail::param_holder<ending, param_count>::param_holder(
-   const Ts... params
-)
-   : m_start_params{ params... }
-{
-   // assert all ints
-   static_assert(sizeof...(Ts) == param_count, "Wrong number of parameters");
-}
-
-
-
 #ifdef CM_IMPL
 
-auto cvtsw::position(const int line, const int column) -> detail::pos_params{
+auto cvtsw::position(const int line, const int column) -> position_sequence {
    const int effective_line = line + 1;
    const int effective_column = column + 1;
-   return detail::pos_params{ effective_line, effective_column };
+   return position_sequence{ effective_line, effective_column };
 }
 
-auto cvtsw::vposition(const int line)-> detail::vpos_params{
-   const int effective_line = line + 1;
-   return detail::vpos_params{ effective_line };
+//auto cvtsw::vposition(const int line)-> detail::vpos_params{
+//   const int effective_line = line + 1;
+//   return detail::vpos_params{ effective_line };
+//}
+//
+//auto cvtsw::hposition(const int column) -> detail::hpos_params{
+//   const int effective_column = column + 1;
+//   return detail::hpos_params{ effective_column };
+//}
+
+auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_color_sequence {
+   return fg_color_sequence{
+      color{
+         static_cast<uint8_t>(r),
+         static_cast<uint8_t>(g),
+         static_cast<uint8_t>(b)
+      }
+   };
 }
 
-auto cvtsw::hposition(const int column) -> detail::hpos_params{
-   const int effective_column = column + 1;
-   return detail::hpos_params{ effective_column };
+auto cvtsw::fg_color(const color& col) -> fg_color_sequence {
+   return fg_color_sequence{ col };
 }
 
-auto cvtsw::fg_color(const int r, const int g, const int b) -> detail::rgb_color_params{
-   return detail::rgb_color_params{ 38, 2, r, g, b };
+auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_color_sequence {
+   return bg_color_sequence{
+      color{
+         static_cast<uint8_t>(r),
+         static_cast<uint8_t>(g),
+         static_cast<uint8_t>(b)
+      }
+   };
 }
 
-auto cvtsw::fg_color(const color& col) -> detail::rgb_color_params {
-   return detail::rgb_color_params{ 38, 2, col.red, col.green, col.blue };
+auto cvtsw::bg_color(const color& col) -> bg_color_sequence {
+   return bg_color_sequence{ col };
 }
 
-auto cvtsw::fg_color(const color_enum color) -> detail::enum_color_params{
-   return detail::enum_color_params{ static_cast<int>(color) };
+auto cvtsw::underline(const bool new_value) -> underline_sequence {
+   return underline_sequence{ new_value };
 }
 
-auto cvtsw::bg_color(const int r, const int g, const int b) -> detail::rgb_color_params{
-   return detail::rgb_color_params{ 48, 2, r, g, b };
-}
-
-auto cvtsw::bg_color(const color& col) -> detail::rgb_color_params {
-   return detail::rgb_color_params{ 48, 2, col.red, col.green, col.blue };
-}
-
-auto cvtsw::underline(const bool new_value) -> detail::underline_params{
-   const int code = new_value == true ? 4 : 24;
-   return detail::underline_params{ code };
-}
-
-auto cvtsw::reset_formatting() -> detail::reset_params{
-   return detail::reset_params{ 0 };
+auto cvtsw::reset_formatting() -> reset_sequence {
+   return reset_sequence{};
 }
 
 
@@ -502,7 +509,7 @@ auto cvtsw::detail::get_screen_string(
    const screen<char_type>& scr
 ) -> std::basic_string<char_type>
 {
-   std::vector<sequence_type> sequences;
+   std::vector<sequence_variant_type> sequences;
    sequences.reserve(scr.m_width * scr.m_height * 10);
    size_t reserve_size = 0;
 
@@ -528,15 +535,15 @@ auto cvtsw::detail::get_screen_string(
 
    const auto visitor = [&]<typename T>(const T& alternative) {
       if constexpr (std::is_same_v<T, fg_color_sequence>)
-         fg_color(alternative.m_color).write_into(result_str);
+         ::cvtsw::write_into_string(result_str, fg_color(alternative.m_color));
       else if constexpr (std::is_same_v<T, bg_color_sequence>)
-         bg_color(alternative.m_color).write_into(result_str);
+         cvtsw::write_into_string(result_str, bg_color(alternative.m_color));
       else if constexpr (std::is_same_v<T, underline_sequence>)
-         underline(alternative.m_underline).write_into(result_str);
+         cvtsw::write_into_string(result_str, underline(alternative.m_underline));
       else if constexpr (std::is_same_v<T, position_sequence>)
-         position(alternative.m_line, alternative.m_column).write_into(result_str);
+         cvtsw::write_into_string(result_str, position(alternative.m_line, alternative.m_column));
       else if constexpr (std::is_same_v<T, reset_sequence>)
-         reset_formatting().write_into(result_str);
+         cvtsw::write_into_string(result_str, reset_formatting());
 
       else if constexpr (std::is_same_v<char_type, char> && std::is_same_v<T, char_sequence>)
          result_str += alternative.m_letter;
@@ -544,7 +551,7 @@ auto cvtsw::detail::get_screen_string(
          result_str += alternative.m_letter;
    };
    
-   for (const sequence_type& sequence : sequences) {
+   for (const sequence_variant_type& sequence : sequences) {
       std::visit([&](const auto& alternative) {visitor(alternative); }, sequence);
    }
    return result_str;
