@@ -64,8 +64,10 @@ namespace cvtsw
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_into_string(string_type& target, const sequence_type& sequence) -> void;
 
-   template<typename char_type>
+   template<cvtsw::std_string_type string_type>
    struct cell {
+      using char_type = typename string_type::value_type;
+
       char_type letter{};
       bool underline = false;
       color fg_color;
@@ -74,25 +76,28 @@ namespace cvtsw
       friend constexpr auto operator<=>(const cell&, const cell&) = default;
    };
 
-   template<typename char_type>
+   template<cvtsw::std_string_type string_type>
    struct screen{
-      using string_type = std::basic_string<char_type>;
+      using char_type = typename string_type::value_type;
 
       int m_width = 0;
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
       mutable std::optional<size_t> m_last_string_size;
-      // mutable bool m_has_drawn = false;
-      std::vector<cell<char_type>> m_cells;
-      mutable std::vector<cell<char_type>> m_old_cells;
+      std::vector<cell<string_type>> m_cells;
+      mutable std::vector<cell<string_type>> m_old_cells;
 
       explicit screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char);
       [[nodiscard]] auto get_index(const int column, const int line) const -> size_t;
-      [[nodiscard]] auto get(const int column, const int line) -> cell<char_type>&;
+      [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
    };
+
+   // Deduction guide
+   template<typename char_type>
+   screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char) -> screen<std::basic_string<char_type>>;
 
    struct pixel_screen {
       int m_width = 0; // Width is identical between "pixels" and characters
@@ -102,7 +107,7 @@ namespace cvtsw
       std::vector<color> m_pixels;
 
       explicit pixel_screen(const int width, const int halfline_height, const int start_column, const int start_halfline, const color& fill_color);
-      [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<wchar_t>;
+      [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<std::wstring>;
       [[nodiscard]] auto get_line_height() const -> int;
       [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
@@ -157,10 +162,9 @@ namespace cvtsw
       };
 
 
-      template<typename char_type>
+      template<cvtsw::std_string_type string_type>
       struct draw_state{
-         //using string_type = std::basic_string<char_type>;
-         using cell_type = cell<char_type>;
+         using cell_type = cell<string_type>;
 
          std::vector<sequence_variant_type>& m_target_sequences;
          cell_pos m_last_written_pos;
@@ -213,7 +217,7 @@ namespace cvtsw
                m_target_sequences.push_back(position_sequence{ target_pos.get_line() + origin_line, target_pos.get_column() + origin_column });
                cell_reserve_size += position_max;
             }
-            if constexpr (std::is_same_v<char_type, char>)
+            if constexpr (std::is_same_v<string_type, std::string>)
                m_target_sequences.push_back(char_sequence{ target_cell_state.letter });
             else
                m_target_sequences.push_back(wchar_sequence{ target_cell_state.letter });
@@ -225,8 +229,8 @@ namespace cvtsw
          }
       };
 
-      template<typename char_type>
-      [[nodiscard]] auto get_screen_string(const screen<char_type>& scr) -> std::basic_string<char_type>;
+      template<cvtsw::std_string_type string_type>
+      [[nodiscard]] auto get_screen_string(const screen<string_type>& scr) -> string_type;
 
       template<cvtsw::std_string_type string_type, typename T>
       auto write_into_string(
@@ -446,16 +450,16 @@ cvtsw::pixel_screen::pixel_screen(
 }
 
 
-auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<wchar_t>
+auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<std::wstring>
 {
-   screen<wchar_t> result{ m_width, get_line_height(), m_origin_column, m_origin_halfline/2, L'▀' };
+   screen<std::wstring> result{ m_width, get_line_height(), m_origin_column, m_origin_halfline/2, L'▀' };
    // This means fg color is on top
 
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
    for(int line=0; line<result.m_height; ++line){
       for (int column = 0; column<result.m_width; ++column){
-         cell<wchar_t>& target_cell = result.get(column, line);
+         cell<std::wstring>& target_cell = result.get(column, line);
          target_cell.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
          target_cell.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
       }
@@ -504,23 +508,23 @@ auto cvtsw::pixel_screen::get_color(
 #endif
 
 
-template<typename char_type>
+template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::get_screen_string(
-   const screen<char_type>& scr
-) -> std::basic_string<char_type>
+   const screen<string_type>& scr
+) -> string_type
 {
    std::vector<sequence_variant_type> sequences;
    sequences.reserve(scr.m_width * scr.m_height * 10);
    size_t reserve_size = 0;
 
-   draw_state<char_type> state{ sequences, scr.m_width, scr.m_height };
+   draw_state<string_type> state{ sequences, scr.m_width, scr.m_height };
 
    sequences.push_back(reset_sequence{});
    for (cell_pos relative_pos{ scr.m_width, scr.m_height }; relative_pos.is_end() == false; ++relative_pos)
    {
-      const cell<char_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
+      const cell<string_type>& target_cell_state = scr.m_cells[relative_pos.m_index];
 
-      std::optional<std::reference_wrapper<const cell<char_type>>> old_cell_state;
+      std::optional<std::reference_wrapper<const cell<string_type>>> old_cell_state;
       if (scr.m_old_cells.empty() == false)
          old_cell_state.emplace(scr.m_old_cells[relative_pos.m_index]);
 
@@ -530,7 +534,7 @@ auto cvtsw::detail::get_screen_string(
          scr.m_origin_line, scr.m_origin_column
       );
    }
-   std::basic_string<char_type> result_str;
+   string_type result_str;
    result_str.reserve(reserve_size);
 
    const auto visitor = [&]<typename T>(const T& alternative) {
@@ -545,9 +549,9 @@ auto cvtsw::detail::get_screen_string(
       else if constexpr (std::is_same_v<T, reset_sequence>)
          cvtsw::write_into_string(result_str, reset_formatting());
 
-      else if constexpr (std::is_same_v<char_type, char> && std::is_same_v<T, char_sequence>)
+      else if constexpr (std::is_same_v<string_type, std::string> && std::is_same_v<T, char_sequence>)
          result_str += alternative.m_letter;
-      else if constexpr (std::is_same_v<char_type, wchar_t> && std::is_same_v<T, wchar_sequence>)
+      else if constexpr (std::is_same_v<string_type, std::wstring> && std::is_same_v<T, wchar_sequence>)
          result_str += alternative.m_letter;
    };
    
@@ -558,8 +562,8 @@ auto cvtsw::detail::get_screen_string(
 }
 
 
-template <typename char_type>
-cvtsw::screen<char_type>::screen(
+template<cvtsw::std_string_type string_type>
+cvtsw::screen<string_type>::screen(
    const int width, const int height,
    const int start_column, const int start_line,
    const char_type fill_char
@@ -568,14 +572,14 @@ cvtsw::screen<char_type>::screen(
    , m_height(height)
    , m_origin_line(start_line)
    , m_origin_column(start_column)
-   , m_cells(m_width * m_height, cell<char_type>{fill_char})
+   , m_cells(m_width * m_height, cell<string_type>{fill_char})
 {
    
 }
 
 
-template<typename char_type>
-auto cvtsw::screen<char_type>::get_string() const -> string_type
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_string() const -> string_type
 {
    string_type result = detail::get_screen_string(*this);
    m_last_string_size = result.size();
@@ -584,24 +588,24 @@ auto cvtsw::screen<char_type>::get_string() const -> string_type
 }
 
 
-template<typename char_type>
-auto cvtsw::screen<char_type>::get_index(const int column, const int line) const -> size_t
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_index(const int column, const int line) const -> size_t
 {
    return line * m_width + column;
 }
 
 
 
-template<typename char_type>
-auto cvtsw::screen<char_type>::get(const int column, const int line) -> cell<char_type>&
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<string_type>&
 {
    return m_cells[get_index(column, line)];
 }
 
 
 
-template<typename char_type>
-auto cvtsw::screen<char_type>::is_inside(const int column, const int line) const -> bool
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::is_inside(const int column, const int line) const -> bool
 {
    return column >= 0 && column < m_width && line >= 0 && line < m_height;
 }
