@@ -23,7 +23,7 @@ namespace cvtsw
    struct fg_color_sequence { color m_color; };
    struct bg_color_sequence { color m_color; };
    struct underline_sequence { bool m_underline; };
-   struct position_sequence { int m_line; int m_column; };
+   struct position_sequence { uint8_t m_line; uint8_t m_column; };
    struct char_sequence { char m_letter; };
    struct wchar_sequence { wchar_t m_letter; };
    struct reset_sequence { };
@@ -36,6 +36,9 @@ namespace cvtsw
       std::is_same_v<T, char_sequence> || std::is_same_v<T, wchar_sequence> ||
       std::is_same_v<T, reset_sequence>;
    using sequence_variant_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
+
+   template<typename stream_type, cvtsw::sequence_c sequence_type>
+   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
 
 
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_color_sequence;
@@ -60,6 +63,8 @@ namespace cvtsw
 
    [[nodiscard]] auto reset_formatting() -> reset_sequence;
    constexpr size_t   reset_max = 3 + 1;
+
+
 
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_into_string(string_type& target, const sequence_type& sequence) -> void;
@@ -99,6 +104,7 @@ namespace cvtsw
    template<typename char_type>
    screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char) -> screen<std::basic_string<char_type>>;
 
+
    struct pixel_screen {
       int m_width = 0; // Width is identical between "pixels" and characters
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
@@ -113,11 +119,6 @@ namespace cvtsw
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
       [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
    };
-
-
-   template<typename stream_type, cvtsw::sequence_c sequence_type>
-   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
-   
 
    namespace detail
    {
@@ -214,7 +215,12 @@ namespace cvtsw
             }
 
             if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
-               m_target_sequences.push_back(position_sequence{ target_pos.get_line() + origin_line, target_pos.get_column() + origin_column });
+               m_target_sequences.push_back(
+                  position_sequence{
+                     static_cast<uint8_t>(target_pos.get_line() + origin_line),
+                     static_cast<uint8_t>(target_pos.get_column() + origin_column)
+                  }
+               );
                cell_reserve_size += position_max;
             }
             if constexpr (std::is_same_v<string_type, std::string>)
@@ -268,7 +274,8 @@ auto cvtsw::write_into_string(
    const sequence_type& sequence
 ) -> void
 {
-   // TODO reserve????
+   detail::reserve_size(target, detail::get_reserve_size(sequence));
+
    using char_type = typename string_type::value_type;
    if constexpr (std::same_as<string_type, std::string>)
       target += "\x1b[";
@@ -344,10 +351,13 @@ template<cvtsw::sequence_c sequence_type>
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::to_xstring(string_type& target, const int value) -> void
 {
-   if constexpr (std::same_as<string_type, std::string>)
-      target += std::to_string(value);
-   else
-      target += std::to_wstring(value);
+   using char_type = typename string_type::value_type;
+   const int hundreds = value / 100;
+   if (value >= 100)
+      target += static_cast<char_type>('0' + hundreds);
+   if (value >= 10)
+      target += static_cast<char_type>('0' + (value%100)/10);
+   target += '0' + value % 10;
 }
 
 
@@ -383,7 +393,7 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 auto cvtsw::position(const int line, const int column) -> position_sequence {
    const int effective_line = line + 1;
    const int effective_column = column + 1;
-   return position_sequence{ effective_line, effective_column };
+   return position_sequence{ static_cast<uint8_t>(effective_line), static_cast<uint8_t>(effective_column) };
 }
 
 //auto cvtsw::vposition(const int line)-> detail::vpos_params{
