@@ -117,7 +117,7 @@ namespace cvtsw
    template<typename char_type>
    screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char) -> screen<std::basic_string<char_type>>;
 
-
+   // TODO this is broken, never reuses m_old_cells of screen. this needs to do something else
    struct pixel_screen {
       int m_width = 0; // Width is identical between "pixels" and characters
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
@@ -153,6 +153,7 @@ namespace cvtsw
       template<cvtsw::std_string_type string_type>
       auto write_int_to_string(string_type& target, const int value) -> void;
 
+      // Needs to know origins so he can accurately predict necessary position changes when 
       struct cell_pos {
          int m_index = 0;
          int m_width = 0;
@@ -184,17 +185,18 @@ namespace cvtsw
       };
 
 
+      
+
+
       template<cvtsw::std_string_type string_type>
       struct draw_state{
          using cell_type = cell<string_type>;
 
-         cell_pos m_last_written_pos;
+         std::optional<cell_pos> m_last_written_pos;
 
          std::optional<formatting_state> m_format;
          
-         explicit draw_state(const int width, const int height)
-            : m_last_written_pos(width, height)
-         {}
+         explicit draw_state(){}
 
          auto write_sequence(
             std::vector<sequence_variant_type>& m_target_sequences,
@@ -215,23 +217,17 @@ namespace cvtsw
                m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
             }
             else {
-
                // Apply differences between console state and the target state
                if (target_cell_state.m_format.fg_color != m_format->fg_color)
-               {
                   m_target_sequences.push_back(fg_color_sequence{ target_cell_state.m_format.fg_color });
-               }
                if (target_cell_state.m_format.bg_color != m_format->bg_color)
-               {
                   m_target_sequences.push_back(bg_color_sequence{ target_cell_state.m_format.bg_color });
-               }
                if (target_cell_state.m_format.underline != m_format->underline)
-               {
                   m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
-               }
             }
 
-            if (target_pos != (m_last_written_pos + 1) || target_pos.get_column() == 0) {
+
+            if (is_position_sequence_necessary(target_pos)){
                m_target_sequences.push_back(
                   position_sequence{
                      static_cast<uint8_t>(target_pos.get_line() + origin_line),
@@ -252,6 +248,26 @@ namespace cvtsw
       private:
          auto take_complete_cell_state(const cell_type& cell) {
             m_format.emplace(cell.m_format);
+         }
+
+         [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) -> bool
+         {
+            // There is was nothing written before, hence the cursor position is unknown
+            if (m_last_written_pos.has_value() == false)
+               return true;
+
+            const cell_pos current_cursor_pos = m_last_written_pos.value() + 1;
+
+            // The cursor position is known to be wrong
+            if (target_pos != current_cursor_pos)
+               return true;
+
+            // If we're on the "right" position according to the subset of the buffer, the position still
+            // needs to be set if there was a line jump. TODO better would be the position to keep track of these
+            if (current_cursor_pos.get_line() != m_last_written_pos->get_line())
+               return true;
+
+            return false;
          }
       };
 
@@ -321,7 +337,7 @@ auto cvtsw::write_sequence_into_string(
       }
       else if constexpr (std::is_same_v<sequence_type, position_sequence>)
       {
-         detail::write_ints_into_string(target, sequence.m_line, sequence.m_column);
+         detail::write_ints_into_string(target, sequence.m_line + 1, sequence.m_column + 1);
          target += static_cast<char_type>('H');
       }
       else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
@@ -441,7 +457,7 @@ auto cvtsw::screen<string_type>::get_sequences() const -> std::vector<sequence_v
    std::vector<sequence_variant_type> sequences;
    sequences.reserve(this->m_width * this->m_height * 10);
 
-   detail::draw_state<string_type> state{ this->m_width, this->m_height };
+   detail::draw_state<string_type> state{};
    sequences.push_back(reset_sequence{});
 
    for (detail::cell_pos relative_pos{ this->m_width, this->m_height }; relative_pos.is_end() == false; ++relative_pos)
