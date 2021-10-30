@@ -98,15 +98,25 @@ namespace cvtsw
    struct screen{
       using char_type = typename string_type::value_type;
 
+      std::vector<cell<string_type>> m_cells;
+
+   private:
       int m_width = 0;
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
-      std::vector<cell<string_type>> m_cells;
       mutable std::vector<cell<string_type>> m_old_cells;
 
+   public:
       explicit screen(const int width, const int height, const int start_column, const int start_line, const char_type fill_char);
-      [[nodiscard]] auto get_index(const int column, const int line) const -> size_t;
+
+      [[nodiscard]] auto begin() const{ return std::begin(m_cells); }
+      [[nodiscard]] auto begin()      { return std::begin(m_cells); }
+      [[nodiscard]] auto end() const  { return std::end(m_cells); }
+      [[nodiscard]] auto end()        { return std::end(m_cells); }
+
+      [[nodiscard]] auto get_width() const -> int;
+      [[nodiscard]] auto get_height() const -> int;
       [[nodiscard]] auto get_sequences() const -> std::vector<sequence_variant_type>;
       [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
@@ -126,6 +136,11 @@ namespace cvtsw
       std::vector<color> m_pixels;
 
       explicit pixel_screen(const int width, const int halfline_height, const int start_column, const int start_halfline, const color& fill_color);
+
+      [[nodiscard]] auto begin() const{ return std::begin(m_pixels); }
+      [[nodiscard]] auto begin()      { return std::begin(m_pixels); }
+      [[nodiscard]] auto end() const  { return std::end(m_pixels); }
+      [[nodiscard]] auto end()        { return std::end(m_pixels); }
       
       [[nodiscard]] auto get_string(const color& frame_color) const->std::wstring;
       // Since pixel screens operate with block characters, this will always return a std::wstring.
@@ -423,13 +438,27 @@ cvtsw::screen<string_type>::screen(
    const int start_column, const int start_line,
    const char_type fill_char
 )
-   : m_width(width)
+   : m_cells(width * height, cell<string_type>{fill_char})
+   , m_width(width)
    , m_height(height)
    , m_origin_line(start_line)
    , m_origin_column(start_column)
-   , m_cells(m_width * m_height, cell<string_type>{fill_char})
 {
    
+}
+
+
+template <cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_width() const -> int
+{
+   return m_width;
+}
+
+
+template <cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_height() const -> int
+{
+   return m_height;
 }
 
 
@@ -486,18 +515,10 @@ auto cvtsw::screen<string_type>::get_string() const -> string_type
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_index(
-   const int column, const int line
-) const -> size_t
-{
-   return line * m_width + column;
-}
-
-
-template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<string_type>&
 {
-   return m_cells[get_index(column, line)];
+   const int index = line * m_width + column;
+   return m_cells[index];
 }
 
 
@@ -593,8 +614,9 @@ auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<s
 
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
-   for (int line = 0; line < result.m_height; ++line) {
-      for (int column = 0; column < result.m_width; ++column) {
+   // TODO iterator?
+   for (int line = 0; line < result.get_height(); ++line) {
+      for (int column = 0; column < result.get_width(); ++column) {
          cell<std::wstring>& target_cell = result.get(column, line);
          target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
          target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
