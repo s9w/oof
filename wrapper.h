@@ -151,7 +151,7 @@ namespace cvtsw
 
       // std::to_string() or std::to_wstring() depending on the template type
       template<cvtsw::std_string_type string_type>
-      auto write_int_to_string(string_type& target, const int value) -> void;
+      auto write_int_to_string(string_type& target, const int value, const bool with_leading_semicolon) -> void;
 
       // Needs to know origins so he can accurately predict necessary position changes when 
       struct cell_pos {
@@ -183,9 +183,6 @@ namespace cvtsw
          }
          friend constexpr auto operator<=>(const cell_pos&, const cell_pos&) = default;
       };
-
-
-      
 
 
       template<cvtsw::std_string_type string_type>
@@ -226,7 +223,6 @@ namespace cvtsw
                   m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
             }
 
-
             if (is_position_sequence_necessary(target_pos)){
                m_target_sequences.push_back(
                   position_sequence{
@@ -236,20 +232,13 @@ namespace cvtsw
                );
             }
 
-            if constexpr (std::is_same_v<string_type, std::string>)
-               m_target_sequences.push_back(char_sequence{ target_cell_state.letter });
-            else
-               m_target_sequences.push_back(wchar_sequence{ target_cell_state.letter });
+            m_target_sequences.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
 
             m_last_written_pos = target_pos;
-            take_complete_cell_state(target_cell_state);
+            m_format = target_cell_state.m_format;
          }
 
       private:
-         auto take_complete_cell_state(const cell_type& cell) {
-            m_format.emplace(cell.m_format);
-         }
-
          [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) -> bool
          {
             // There is was nothing written before, hence the cursor position is unknown
@@ -263,23 +252,13 @@ namespace cvtsw
                return true;
 
             // If we're on the "right" position according to the subset of the buffer, the position still
-            // needs to be set if there was a line jump. TODO better would be the position to keep track of these
+            // needs to be set if there was a line jump.
             if (current_cursor_pos.get_line() != m_last_written_pos->get_line())
                return true;
 
             return false;
          }
       };
-
-
-      template<cvtsw::std_string_type string_type, typename T>
-      auto write_ints_into_string(
-         string_type& target,
-         const T& last
-      ) -> void
-      {
-         detail::write_int_to_string(target, last);;
-      }
 
 
       template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
@@ -289,12 +268,8 @@ namespace cvtsw
          const Ts&... rest
       ) -> void
       {
-         detail::write_int_to_string(target, first);
-
-         using char_type = typename string_type::value_type;
-         target += static_cast<char_type>(';');
-
-         write_ints_into_string(target, rest...);
+         detail::write_int_to_string(target, first, false);
+         ((detail::write_int_to_string(target, rest, true)), ...);
       }
 
    } // namespace cvtsw::detail
@@ -393,9 +368,17 @@ template<cvtsw::sequence_c sequence_type>
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::write_int_to_string(string_type& target, const int value) -> void
+auto cvtsw::detail::write_int_to_string(
+   string_type& target,
+   const int value,
+   const bool with_leading_semicolon
+) -> void
 {
    using char_type = typename string_type::value_type;
+
+   if (with_leading_semicolon)
+      target += static_cast<char_type>(';');
+
    const int hundreds = value / 100;
    if (value >= 100)
       target += static_cast<char_type>('0' + hundreds);
@@ -503,11 +486,12 @@ auto cvtsw::screen<string_type>::get_string() const -> string_type
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_index(const int column, const int line) const -> size_t
+auto cvtsw::screen<string_type>::get_index(
+   const int column, const int line
+) const -> size_t
 {
    return line * m_width + column;
 }
-
 
 
 template<cvtsw::std_string_type string_type>
@@ -515,7 +499,6 @@ auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<s
 {
    return m_cells[get_index(column, line)];
 }
-
 
 
 template<cvtsw::std_string_type string_type>
