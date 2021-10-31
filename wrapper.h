@@ -25,8 +25,11 @@ namespace cvtsw
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
 
-   struct fg_color_sequence { color m_color; };
-   struct bg_color_sequence { color m_color; };
+   struct fg_rgb_color_sequence { color m_color; };
+   struct fg_index_color_sequence { int m_index; };
+   struct set_index_color_sequence { int m_index; color m_color; };
+   struct bg_rgb_color_sequence { color m_color; };
+   struct bg_index_color_sequence { int m_index; };
    struct underline_sequence { bool m_underline; };
    struct position_sequence { uint8_t m_line; uint8_t m_column; };
    struct char_sequence { char m_letter; };
@@ -38,20 +41,38 @@ namespace cvtsw
 
    // TODO maybe sequences type that keeps track of precise reserve amount?
 
-   template<typename T, typename ... Ts>
-   concept any_of_c = (std::is_same_v<T, Ts> || ...);
+
+   template<typename T, typename variant_type>
+   struct is_alternative : std::bool_constant<false> {};
+
+   template<typename T, typename ... variant_alternatives>
+   struct is_alternative<T, std::variant<variant_alternatives...>>
+      : std::disjunction<std::is_same<T, variant_alternatives>...> {};
+
+   template<typename T, typename variant_type>
+   constexpr bool is_alternative_v = is_alternative<T, variant_type>::value;
+
+   using sequence_variant_type = std::variant<fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, set_index_color_sequence>;
 
    template<typename T>
-   concept sequence_c = any_of_c<T, fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
-   using sequence_variant_type = std::variant<fg_color_sequence, bg_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence>;
+   concept sequence_c = is_alternative_v<T, sequence_variant_type>;
+   template<typename T, typename ... Ts>
+   concept same_as_any = (std::same_as<T, Ts> || ...);
+   template<typename T>
+   concept alternative_start_c = same_as_any<T, set_index_color_sequence>;
+
 
    // Generators of sequences
-   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_color_sequence;
-   [[nodiscard]] auto fg_color(const color& col) -> fg_color_sequence;
+   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence;
+   [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
+   [[nodiscard]] auto fg_color(const int index) -> fg_index_color_sequence;
    constexpr size_t   fg_color_max = 3 + 16;
 
-   [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_color_sequence;
-   [[nodiscard]] auto bg_color(const color& col) -> bg_color_sequence;
+   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
+
+   [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence;
+   [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
+   [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
    constexpr size_t   bg_color_max = 3 + 16;
    
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
@@ -79,11 +100,11 @@ namespace cvtsw
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
 
-   struct formatting_state {
+   struct cell_format {
       bool underline = false;
       color fg_color;
       color bg_color;
-      friend constexpr auto operator<=>(const formatting_state&, const formatting_state&) = default;
+      friend constexpr auto operator<=>(const cell_format&, const cell_format&) = default;
    };
 
    template<cvtsw::std_string_type string_type>
@@ -91,7 +112,7 @@ namespace cvtsw
       using char_type = typename string_type::value_type;
 
       char_type letter{};
-      formatting_state m_format;
+      cell_format m_format;
       friend constexpr auto operator<=>(const cell&, const cell&) = default;
    };
 
@@ -123,9 +144,9 @@ namespace cvtsw
       [[nodiscard]] auto get_string() const -> string_type;
 
       [[nodiscard]] auto begin() const { return std::begin(m_cells); }
-      [[nodiscard]] auto begin() { return std::begin(m_cells); }
-      [[nodiscard]] auto end() const { return std::end(m_cells); }
-      [[nodiscard]] auto end() { return std::end(m_cells); }
+      [[nodiscard]] auto begin()       { return std::begin(m_cells); }
+      [[nodiscard]] auto end()   const { return std::end(m_cells); }
+      [[nodiscard]] auto end()         { return std::end(m_cells); }
    };
 
    // Deduction guide
@@ -137,22 +158,25 @@ namespace cvtsw
 
    // TODO this is broken, never reuses m_old_cells of screen. this needs to do something else
    struct pixel_screen {
-      int m_width = 0; // Width is identical between "pixels" and characters
-      int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
-      int m_origin_column = 0;
-      int m_origin_halfline = 0;
+   public:
       std::vector<color> m_pixels;
-
       explicit pixel_screen(
          const int width, const int halfline_height,
          const int start_column, const int start_halfline,
          const color& fill_color
       );
 
-      [[nodiscard]] auto begin() const{ return std::begin(m_pixels); }
-      [[nodiscard]] auto begin()      { return std::begin(m_pixels); }
-      [[nodiscard]] auto end() const  { return std::end(m_pixels); }
-      [[nodiscard]] auto end()        { return std::end(m_pixels); }
+   private:
+      int m_width = 0; // Width is identical between "pixels" and characters
+      int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
+      int m_origin_column = 0;
+      int m_origin_halfline = 0;
+
+   public:
+      [[nodiscard]] auto begin() const { return std::begin(m_pixels); }
+      [[nodiscard]] auto begin()       { return std::begin(m_pixels); }
+      [[nodiscard]] auto end()   const { return std::end(m_pixels); }
+      [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
       [[nodiscard]] auto get_string(const color& frame_color) const->std::wstring;
       // Since pixel screens operate with block characters, this will always return a std::wstring.
@@ -162,10 +186,10 @@ namespace cvtsw
 
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
       [[nodiscard]] auto get_color(const int column, const int halfline)->color&;
+      [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
-      [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
    };
 
    namespace detail
@@ -218,7 +242,7 @@ namespace cvtsw
 
          std::optional<cell_pos> m_last_written_pos;
 
-         std::optional<formatting_state> m_format;
+         std::optional<cell_format> m_format;
          
          explicit draw_state(){}
 
@@ -236,16 +260,16 @@ namespace cvtsw
                return;
 
             if (m_format.has_value() == false) {
-               m_target_sequences.push_back(fg_color_sequence{ target_cell_state.m_format.fg_color });
-               m_target_sequences.push_back(bg_color_sequence{ target_cell_state.m_format.bg_color });
+               m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
+               m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
                m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
             }
             else {
                // Apply differences between console state and the target state
                if (target_cell_state.m_format.fg_color != m_format->fg_color)
-                  m_target_sequences.push_back(fg_color_sequence{ target_cell_state.m_format.fg_color });
+                  m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
                if (target_cell_state.m_format.bg_color != m_format->bg_color)
-                  m_target_sequences.push_back(bg_color_sequence{ target_cell_state.m_format.bg_color });
+                  m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
                if (target_cell_state.m_format.underline != m_format->underline)
                   m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
             }
@@ -299,6 +323,19 @@ namespace cvtsw
          ((detail::write_int_to_string(target, rest, true)), ...);
       }
 
+      template<cvtsw::std_string_type string_type>
+      [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
+
+      template<sequence_c T, std_string_type string_type>
+      constexpr const char* sequence_start = "\x1b[";
+      
+      template<alternative_start_c T>
+      constexpr const char* sequence_start<T, std::string> = "\x1b]";
+      template<alternative_start_c T>
+      constexpr const wchar_t* sequence_start<T, std::wstring> = L"\x1b]";
+      template<sequence_c T>
+      constexpr const wchar_t* sequence_start<T, std::wstring> = L"\x1b[";
+
    } // namespace cvtsw::detail
 
 } // namespace cvtsw
@@ -317,17 +354,29 @@ auto cvtsw::write_sequence_into_string(
    else
    {
       using char_type = typename string_type::value_type;
-      if constexpr (std::same_as<string_type, std::string>)
-         target += "\x1b[";
-      else
-         target += L"\x1b[";
+      target += detail::sequence_start<sequence_type, string_type>;
 
-      if constexpr (std::is_same_v<sequence_type, fg_color_sequence>)
+      if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence>)
       {
          detail::write_ints_into_string(target, 38, 2, sequence.m_color.red, sequence.m_color.green, sequence.m_color.blue);
          target += static_cast<char_type>('m');
       }
-      else if constexpr (std::is_same_v<sequence_type, bg_color_sequence>)
+      else if constexpr (std::is_same_v<sequence_type, fg_index_color_sequence>)
+      {
+         detail::write_ints_into_string(target, 38, 5, sequence.m_index);
+         target += static_cast<char_type>('m');
+      }
+      else if constexpr (std::is_same_v<sequence_type, bg_index_color_sequence>)
+      {
+         detail::write_ints_into_string(target, 48, 5, sequence.m_index);
+         target += static_cast<char_type>('m');
+      }
+      else if constexpr (std::is_same_v<sequence_type, set_index_color_sequence>)
+      {
+         detail::write_ints_into_string(target, 4, sequence.m_index);
+         target += detail::get_index_color_seq_str<string_type>(sequence);
+      }
+      else if constexpr (std::is_same_v<sequence_type, bg_rgb_color_sequence>)
       {
          detail::write_ints_into_string(target, 48, 2, sequence.m_color.red, sequence.m_color.green, sequence.m_color.blue);
          target += static_cast<char_type>('m');
@@ -351,24 +400,64 @@ auto cvtsw::write_sequence_into_string(
 }
 
 
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::get_index_color_seq_str(
+   const set_index_color_sequence& sequence
+) -> string_type
+{
+   if(sequence.m_index < 1 || sequence.m_index > 255){
+      // TODO error
+      return string_type{};
+   }
+
+   using char_type = typename string_type::value_type;
+
+   string_type result;
+   if constexpr(std::same_as<string_type, std::string>)
+      result = ";rgb:";
+   else
+      result = L";rgb:";
+
+   constexpr auto write_nibble = [&](const int nibble) {
+      if (nibble < 10)
+         result += static_cast<char_type>('0' + nibble);
+      else
+         result += static_cast<char_type>('a' + nibble - 10);
+   };
+   constexpr auto write_component = [&](const uint8_t component) {
+      if (component > 15)
+         write_nibble(component >> 4);
+      write_nibble(component & 0xf);
+   };
+   write_component(sequence.m_color.red);
+   result += static_cast<char_type>('/');
+   write_component(sequence.m_color.green);
+   result += static_cast<char_type>('/');
+   write_component(sequence.m_color.blue);
+   result += static_cast<char_type>('\x1b');
+   result += static_cast<char_type>('\x5c');
+   return result;
+}
+
+
 template<cvtsw::sequence_c sequence_type>
 [[nodiscard]] constexpr auto cvtsw::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
 {
+   constexpr auto get_int_param_str_length = [](const int param) {
+      if (param < 10)
+         return 1;
+      if (param < 100)
+         return 2;
+      return 3;
+   };
+
    if constexpr (std::is_same_v<sequence_type, char_sequence> || std::is_same_v<sequence_type, wchar_sequence>) {
       return 1;
    }
    else {
-      constexpr auto get_int_param_str_length = [](const int param) {
-         if (param < 10)
-            return 1;
-         if (param < 100)
-            return 2;
-         return 3;
-      };
-
       size_t reserve_size = 0;
       constexpr int semicolon_size = 1;
-      if constexpr (std::is_same_v<sequence_type, fg_color_sequence> || std::is_same_v<sequence_type, fg_color_sequence>) {
+      if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence> || std::is_same_v<sequence_type, fg_rgb_color_sequence>) {
          reserve_size += 2 + semicolon_size + 1 +
             semicolon_size + get_int_param_str_length(sequence.m_color.red) +
             semicolon_size + get_int_param_str_length(sequence.m_color.green) +
@@ -431,6 +520,16 @@ auto cvtsw::detail::reserve_string_for_sequence(
       target.reserve(target.capacity() + size_neede);
    }
 }
+
+// template<typename variant_type>
+// struct is_alternative{
+//    static_assert(sizeof(variant_type) < 0, "Can't use is_alternative with non-variant type");
+// };
+// template<typename... variant_alternatives>
+// struct is_alternative<std::variant<variant_alternatives...>> {
+//    constexpr static bool value = ((cvtsw::detail::get_sequence_string_size(variant_alternatives{}) > 0) && ...);
+// };
+// static_assert(is_alternative<cvtsw::sequence_variant_type>::value, "CAUGHT");
 
 
 template<typename stream_type, cvtsw::sequence_c sequence_type>
@@ -572,8 +671,8 @@ auto cvtsw::position(const int line, const int column) -> position_sequence {
 //}
 
 
-auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_color_sequence {
-   return fg_color_sequence{
+auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
+   return fg_rgb_color_sequence{
       color{
          static_cast<uint8_t>(r),
          static_cast<uint8_t>(g),
@@ -583,13 +682,28 @@ auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_color_sequence
 }
 
 
-auto cvtsw::fg_color(const color& col) -> fg_color_sequence {
-   return fg_color_sequence{ col };
+auto cvtsw::fg_color(const color& col) -> fg_rgb_color_sequence {
+   return fg_rgb_color_sequence{ col };
 }
 
 
-auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_color_sequence {
-   return bg_color_sequence{
+auto cvtsw::fg_color(const int index) -> fg_index_color_sequence
+{
+   return fg_index_color_sequence{ index };
+}
+
+
+auto cvtsw::set_index_color(
+   const int index,
+   const color& col
+) -> set_index_color_sequence
+{
+   return set_index_color_sequence{ index, col };
+}
+
+
+auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence {
+   return bg_rgb_color_sequence{
       color{
          static_cast<uint8_t>(r),
          static_cast<uint8_t>(g),
@@ -599,12 +713,20 @@ auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_color_sequence
 }
 
 
-auto cvtsw::bg_color(const color& col) -> bg_color_sequence {
-   return bg_color_sequence{ col };
+auto cvtsw::bg_color(const color& col) -> bg_rgb_color_sequence
+{
+   return bg_rgb_color_sequence{ col };
 }
 
 
-auto cvtsw::underline(const bool new_value) -> underline_sequence {
+auto cvtsw::bg_color(const int index) -> bg_index_color_sequence
+{
+   return bg_index_color_sequence{ index };
+}
+
+
+auto cvtsw::underline(const bool new_value) -> underline_sequence
+{
    return underline_sequence{ new_value };
 }
 
@@ -621,11 +743,11 @@ cvtsw::pixel_screen::pixel_screen(
    const int start_halfline,
    const color& fill_color
 )
-   : m_width(width)
+   : m_pixels(width * halfline_height, fill_color)
+   , m_width(width)
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
-   , m_pixels(m_width* m_halfline_height, fill_color)
 {
 
 }
