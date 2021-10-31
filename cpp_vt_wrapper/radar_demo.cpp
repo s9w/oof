@@ -33,7 +33,6 @@ namespace
 
 auto radar_demo() -> void
 {
-   constexpr double height_stretch = 1.2;
    constexpr int width = 80;
    constexpr int height = 80;
    pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
