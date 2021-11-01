@@ -31,6 +31,7 @@ namespace cvtsw
    struct bg_rgb_color_sequence { color m_color; };
    struct bg_index_color_sequence { int m_index; };
    struct underline_sequence { bool m_underline; };
+   struct bold_sequence { bool m_bold; };
    struct position_sequence { uint8_t m_line; uint8_t m_column; };
    struct char_sequence { char m_letter; };
    struct wchar_sequence { wchar_t m_letter; };
@@ -52,7 +53,7 @@ namespace cvtsw
    template<typename T, typename variant_type>
    constexpr bool is_alternative_v = is_alternative<T, variant_type>::value;
 
-   using sequence_variant_type = std::variant<fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, underline_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, set_index_color_sequence>;
+   using sequence_variant_type = std::variant<fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, set_index_color_sequence>;
 
    template<typename T>
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
@@ -78,6 +79,9 @@ namespace cvtsw
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
    constexpr size_t   underline_max = 3 + 2;
 
+   [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
+   constexpr size_t   bold_max = 3 + 2;
+
    [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
    constexpr size_t   position_max = 3 + 2*3+1;
 
@@ -101,9 +105,10 @@ namespace cvtsw
 
 
    struct cell_format {
-      bool underline = false;
-      color fg_color;
-      color bg_color;
+      bool m_underline = false;
+      bool m_bold = false;
+      color fg_color{255, 255, 255};
+      color bg_color{0, 0, 0};
       friend constexpr auto operator<=>(const cell_format&, const cell_format&) = default;
    };
 
@@ -142,6 +147,7 @@ namespace cvtsw
       [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
+      auto write_into(const string_type& text, const int column, const int line, const cell_format& formatting) -> void;
 
       [[nodiscard]] auto begin() const { return std::begin(m_cells); }
       [[nodiscard]] auto begin()       { return std::begin(m_cells); }
@@ -262,7 +268,8 @@ namespace cvtsw
             if (m_format.has_value() == false) {
                m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
                m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
-               m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
+               m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+               m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
             }
             else {
                // Apply differences between console state and the target state
@@ -270,8 +277,10 @@ namespace cvtsw
                   m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
                if (target_cell_state.m_format.bg_color != m_format->bg_color)
                   m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
-               if (target_cell_state.m_format.underline != m_format->underline)
-                  m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.underline });
+               if (target_cell_state.m_format.m_underline != m_format->m_underline)
+                  m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+               if (target_cell_state.m_format.m_bold != m_format->m_bold)
+                  m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
             }
 
             if (is_position_sequence_necessary(target_pos)){
@@ -386,6 +395,11 @@ auto cvtsw::write_sequence_into_string(
          detail::write_ints_into_string(target, sequence.m_underline ? 4 : 24);
          target += static_cast<char_type>('m');
       }
+      else if constexpr (std::is_same_v<sequence_type, bold_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_bold ? 1 : 22);
+         target += static_cast<char_type>('m');
+      }
       else if constexpr (std::is_same_v<sequence_type, position_sequence>)
       {
          detail::write_ints_into_string(target, sequence.m_line + 1, sequence.m_column + 1);
@@ -466,6 +480,10 @@ template<cvtsw::sequence_c sequence_type>
       else if constexpr (std::is_same_v<sequence_type, underline_sequence>)
       {
          reserve_size += sequence.m_underline ? 1 : 2;
+      }
+      else if constexpr (std::is_same_v<sequence_type, bold_sequence>)
+      {
+         reserve_size += sequence.m_bold ? 1 : 2;
       }
       else if constexpr (std::is_same_v<sequence_type, position_sequence>)
       {
@@ -637,6 +655,25 @@ auto cvtsw::screen<string_type>::get_string() const -> string_type
 }
 
 
+template <cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::write_into(
+   const string_type& text,
+   const int column, const int line,
+   const cell_format& formatting
+) -> void
+{
+   const int ending_column = column + text.size();
+   if(ending_column >= m_width)
+   {
+      // ERROR
+   }
+   for (int i = 0; i < text.size(); ++i) {
+      m_cells[line * m_width + column + i].letter = text[i];
+      m_cells[line * m_width + column + i].m_format = formatting;
+   }
+}
+
+
 template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<string_type>&
 {
@@ -728,6 +765,12 @@ auto cvtsw::bg_color(const int index) -> bg_index_color_sequence
 auto cvtsw::underline(const bool new_value) -> underline_sequence
 {
    return underline_sequence{ new_value };
+}
+
+
+auto cvtsw::bold(const bool new_value) -> bold_sequence
+{
+   return bold_sequence{ new_value };
 }
 
 
