@@ -129,6 +129,7 @@ namespace cvtsw
       int m_origin_line = 0;
       int m_origin_column = 0;
       mutable std::vector<cell<string_type>> m_old_cells;
+      mutable std::vector<sequence_variant_type> m_sequence_buffer;
 
    public:
       explicit screen(
@@ -139,7 +140,7 @@ namespace cvtsw
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
-      [[nodiscard]] auto get_sequences() const -> std::vector<sequence_variant_type>;
+      
       [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
@@ -149,6 +150,9 @@ namespace cvtsw
       [[nodiscard]] auto begin()       { return std::begin(m_cells); }
       [[nodiscard]] auto end()   const { return std::end(m_cells); }
       [[nodiscard]] auto end()         { return std::end(m_cells); }
+
+   private:
+      [[nodiscard]] auto update_sequence_buffer() const -> void;
    };
 
    // Deduction guide
@@ -478,14 +482,13 @@ auto cvtsw::detail::get_index_color_seq_str(
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_sequences() const -> std::vector<sequence_variant_type>
+auto cvtsw::screen<string_type>::update_sequence_buffer() const -> void
 {
    ZoneScoped;
-   std::vector<sequence_variant_type> sequences;
-   sequences.reserve(this->m_width * this->m_height * 10);
 
    detail::draw_state<string_type> state{};
-   sequences.push_back(reset_sequence{});
+   m_sequence_buffer.clear();
+   m_sequence_buffer.push_back(reset_sequence{});
 
    for (detail::cell_pos relative_pos{ this->m_width, this->m_height }; relative_pos.is_end() == false; ++relative_pos)
    {
@@ -496,13 +499,12 @@ auto cvtsw::screen<string_type>::get_sequences() const -> std::vector<sequence_v
          old_cell_state.emplace(this->m_old_cells[relative_pos.m_index]);
 
       state.write_sequence(
-         sequences,
+         m_sequence_buffer,
          target_cell_state, old_cell_state,
          relative_pos,
          this->m_origin_line, this->m_origin_column
       );
    }
-   return sequences;
 }
 
 
@@ -539,10 +541,8 @@ auto cvtsw::screen<string_type>::get_height() const -> int
 template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::get_string() const -> string_type
 {
-   ZoneScopedN("screen::get_string()");
-   const std::vector<sequence_variant_type> sequences = get_sequences();
-
-   string_type result = get_string_from_sequences<string_type>(sequences);
+   this->update_sequence_buffer();
+   string_type result = get_string_from_sequences<string_type>(m_sequence_buffer);
    m_old_cells = m_cells;
    return result;
 }
@@ -591,8 +591,11 @@ auto cvtsw::get_string_from_sequences(
 ) -> string_type
 {
    size_t reserve_size{};
-   for (const auto& sequence : sequences)
-      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
+   {
+      ZoneScopedN("reserve size");
+      for (const sequence_variant_type& sequence : sequences)
+         std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
+   }
 
    string_type result_str;
    result_str.reserve(reserve_size);
@@ -810,7 +813,7 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
          m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
    }
 
-   if (is_position_sequence_necessary(target_pos)) {
+   if (this->is_position_sequence_necessary(target_pos)) {
       m_target_sequences.push_back(
          position_sequence{
             static_cast<uint8_t>(target_pos.get_line() + origin_line),
