@@ -162,11 +162,6 @@ namespace cvtsw
    struct pixel_screen {
    public:
       std::vector<color> m_pixels;
-      explicit pixel_screen(
-         const int width, const int halfline_height,
-         const int start_column, const int start_halfline,
-         const color& fill_color
-      );
 
    private:
       int m_width = 0; // Width is identical between "pixels" and characters
@@ -175,13 +170,18 @@ namespace cvtsw
       int m_origin_halfline = 0;
 
    public:
+      explicit pixel_screen(
+         const int width, const int halfline_height,
+         const int start_column, const int start_halfline,
+         const color& fill_color
+      );
+
       [[nodiscard]] auto begin() const { return std::begin(m_pixels); }
       [[nodiscard]] auto begin()       { return std::begin(m_pixels); }
       [[nodiscard]] auto end()   const { return std::end(m_pixels); }
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
-      [[nodiscard]] auto get_string(const color& frame_color) const->std::wstring;
-      // Since pixel screens operate with block characters, this will always return a std::wstring.
+      [[nodiscard]] auto get_string(const color& frame_color) const -> std::wstring;
 
       // If you want to override something in the screen
       [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<std::wstring>;
@@ -196,17 +196,12 @@ namespace cvtsw
 
    namespace detail
    {
-      template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
-      auto reserve_string_for_sequence(string_type& target, const sequence_type& sequence) -> void;
-
       template<cvtsw::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
 
-      // std::to_string() or std::to_wstring() depending on the template type
       template<cvtsw::std_string_type string_type>
       auto write_int_to_string(string_type& target, const int value, const bool with_leading_semicolon) -> void;
 
-      // Needs to know origins so he can accurately predict necessary position changes when 
       struct cell_pos {
          int m_index = 0;
          int m_width = 0;
@@ -241,9 +236,7 @@ namespace cvtsw
       template<cvtsw::std_string_type string_type>
       struct draw_state{
          using cell_type = cell<string_type>;
-
          std::optional<cell_pos> m_last_written_pos;
-
          std::optional<cell_format> m_format;
          
          explicit draw_state(){}
@@ -255,65 +248,10 @@ namespace cvtsw
             const cell_pos& target_pos,
             const int origin_line,
             const int origin_column
-         ) -> void
-         {
-            // As long as there's no difference from last draw, don't do anything 
-            if (target_cell_state == old_cell_state)
-               return;
-
-            if (m_format.has_value() == false) {
-               m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
-               m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
-               m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
-               m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
-            }
-            else {
-               // Apply differences between console state and the target state
-               if (target_cell_state.m_format.fg_color != m_format->fg_color)
-                  m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
-               if (target_cell_state.m_format.bg_color != m_format->bg_color)
-                  m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
-               if (target_cell_state.m_format.m_underline != m_format->m_underline)
-                  m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
-               if (target_cell_state.m_format.m_bold != m_format->m_bold)
-                  m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
-            }
-
-            if (is_position_sequence_necessary(target_pos)){
-               m_target_sequences.push_back(
-                  position_sequence{
-                     static_cast<uint8_t>(target_pos.get_line() + origin_line),
-                     static_cast<uint8_t>(target_pos.get_column() + origin_column)
-                  }
-               );
-            }
-
-            m_target_sequences.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
-
-            m_last_written_pos = target_pos;
-            m_format = target_cell_state.m_format;
-         }
+         ) -> void;
 
       private:
-         [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) -> bool
-         {
-            // There is was nothing written before, hence the cursor position is unknown
-            if (m_last_written_pos.has_value() == false)
-               return true;
-
-            const cell_pos current_cursor_pos = m_last_written_pos.value() + 1;
-
-            // The cursor position is known to be wrong
-            if (target_pos != current_cursor_pos)
-               return true;
-
-            // If we're on the "right" position according to the subset of the buffer, the position still
-            // needs to be set if there was a line jump.
-            if (current_cursor_pos.get_line() != m_last_written_pos->get_line())
-               return true;
-
-            return false;
-         }
+         [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) -> bool;
       };
 
 
@@ -322,11 +260,7 @@ namespace cvtsw
          string_type& target,
          const T& first,
          const Ts&... rest
-      ) -> void
-      {
-         detail::write_int_to_string(target, first, false);
-         ((detail::write_int_to_string(target, rest, true)), ...);
-      }
+      ) -> void;
 
       template<cvtsw::std_string_type string_type>
       [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
@@ -336,6 +270,104 @@ namespace cvtsw
 } // namespace cvtsw
 
 
+// Constexpr, therefore defined here
+template<cvtsw::sequence_c sequence_type>
+[[nodiscard]] constexpr auto cvtsw::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
+{
+   constexpr auto get_int_param_str_length = [](const int param) {
+      if (param < 10)
+         return 1;
+      if (param < 100)
+         return 2;
+      return 3;
+   };
+
+   if constexpr (std::is_same_v<sequence_type, char_sequence> || std::is_same_v<sequence_type, wchar_sequence>) {
+      return 1;
+   }
+   else {
+      size_t reserve_size = 0;
+      constexpr int semicolon_size = 1;
+      if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence> || std::is_same_v<sequence_type, fg_rgb_color_sequence>) {
+         reserve_size += 2 + semicolon_size + 1 +
+            semicolon_size + get_int_param_str_length(sequence.m_color.red) +
+            semicolon_size + get_int_param_str_length(sequence.m_color.green) +
+            semicolon_size + get_int_param_str_length(sequence.m_color.blue);
+      }
+      else if constexpr (std::is_same_v<sequence_type, underline_sequence>)
+      {
+         reserve_size += sequence.m_underline ? 1 : 2;
+      }
+      else if constexpr (std::is_same_v<sequence_type, bold_sequence>)
+      {
+         reserve_size += sequence.m_bold ? 1 : 2;
+      }
+      else if constexpr (std::is_same_v<sequence_type, position_sequence>)
+      {
+         reserve_size += get_int_param_str_length(sequence.m_line);
+         reserve_size += semicolon_size;
+         reserve_size += get_int_param_str_length(sequence.m_column);
+      }
+      else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
+      {
+         reserve_size += 1;
+      }
+
+      //reserve_size += n-1; // semicolons
+      reserve_size += 3; // 2 intro, 1 outro
+      return reserve_size;
+   }
+}
+
+
+// This will deliberately be instantiated at compiletime
+template<typename stream_type, cvtsw::sequence_c sequence_type>
+auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&
+{
+   using char_type = typename stream_type::char_type;
+   using string_type = std::basic_string<char_type>;
+   string_type temp;
+   temp.reserve(detail::get_sequence_string_size(sequence));
+   write_sequence_into_string(temp, sequence);
+   os << temp;
+   return os;
+}
+
+
+#ifdef CM_IMPL
+
+// Instantiated by write_ints_into_string()
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::write_int_to_string(
+   string_type& target,
+   const int value,
+   const bool with_leading_semicolon
+) -> void
+{
+   using char_type = typename string_type::value_type;
+
+   if (with_leading_semicolon)
+      target += static_cast<char_type>(';');
+
+   const int hundreds = value / 100;
+   if (value >= 100)
+      target += static_cast<char_type>('0' + hundreds);
+   if (value >= 10)
+      target += static_cast<char_type>('0' + (value % 100) / 10);
+   target += '0' + value % 10;
+}
+
+
+// Instantiated by write_sequence_into_string()
+template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
+auto cvtsw::detail::write_ints_into_string(string_type& target, const T& first, const Ts&... rest) -> void
+{
+   detail::write_int_to_string(target, first, false);
+   ((detail::write_int_to_string(target, rest, true)), ...);
+}
+
+
+// Instantiated by get_string_from_sequences()
 template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
 auto cvtsw::write_sequence_into_string(
    string_type& target,
@@ -351,7 +383,7 @@ auto cvtsw::write_sequence_into_string(
       using char_type = typename string_type::value_type;
 
       target += static_cast<char_type>('\x1b');
-      if constexpr(std::same_as<sequence_type, set_index_color_sequence>)
+      if constexpr (std::same_as<sequence_type, set_index_color_sequence>)
          target += static_cast<char_type>(']');
       else
          target += static_cast<char_type>('[');
@@ -410,7 +442,7 @@ auto cvtsw::detail::get_index_color_seq_str(
    const set_index_color_sequence& sequence
 ) -> string_type
 {
-   if(sequence.m_index < 1 || sequence.m_index > 255){
+   if (sequence.m_index < 1 || sequence.m_index > 255) {
       // TODO error
       return string_type{};
    }
@@ -418,7 +450,7 @@ auto cvtsw::detail::get_index_color_seq_str(
    using char_type = typename string_type::value_type;
 
    string_type result;
-   if constexpr(std::same_as<string_type, std::string>)
+   if constexpr (std::same_as<string_type, std::string>)
       result = ";rgb:";
    else
       result = L";rgb:";
@@ -442,135 +474,6 @@ auto cvtsw::detail::get_index_color_seq_str(
    result += static_cast<char_type>('\x1b');
    result += static_cast<char_type>('\x5c');
    return result;
-}
-
-
-template<cvtsw::sequence_c sequence_type>
-[[nodiscard]] constexpr auto cvtsw::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
-{
-   constexpr auto get_int_param_str_length = [](const int param) {
-      if (param < 10)
-         return 1;
-      if (param < 100)
-         return 2;
-      return 3;
-   };
-
-   if constexpr (std::is_same_v<sequence_type, char_sequence> || std::is_same_v<sequence_type, wchar_sequence>) {
-      return 1;
-   }
-   else {
-      size_t reserve_size = 0;
-      constexpr int semicolon_size = 1;
-      if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence> || std::is_same_v<sequence_type, fg_rgb_color_sequence>) {
-         reserve_size += 2 + semicolon_size + 1 +
-            semicolon_size + get_int_param_str_length(sequence.m_color.red) +
-            semicolon_size + get_int_param_str_length(sequence.m_color.green) +
-            semicolon_size + get_int_param_str_length(sequence.m_color.blue);
-      }
-      else if constexpr (std::is_same_v<sequence_type, underline_sequence>)
-      {
-         reserve_size += sequence.m_underline ? 1 : 2;
-      }
-      else if constexpr (std::is_same_v<sequence_type, bold_sequence>)
-      {
-         reserve_size += sequence.m_bold ? 1 : 2;
-      }
-      else if constexpr (std::is_same_v<sequence_type, position_sequence>)
-      {
-         reserve_size += get_int_param_str_length(sequence.m_line);
-         reserve_size += semicolon_size;
-         reserve_size += get_int_param_str_length(sequence.m_column);
-      }
-      else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
-      {
-         reserve_size += 1;
-      }
-
-      //reserve_size += n-1; // semicolons
-      reserve_size += 3; // 2 intro, 1 outro
-      return reserve_size;
-   }
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::write_int_to_string(
-   string_type& target,
-   const int value,
-   const bool with_leading_semicolon
-) -> void
-{
-   using char_type = typename string_type::value_type;
-
-   if (with_leading_semicolon)
-      target += static_cast<char_type>(';');
-
-   const int hundreds = value / 100;
-   if (value >= 100)
-      target += static_cast<char_type>('0' + hundreds);
-   if (value >= 10)
-      target += static_cast<char_type>('0' + (value%100)/10);
-   target += '0' + value % 10;
-}
-
-
-template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
-auto cvtsw::detail::reserve_string_for_sequence(
-   string_type& target,
-   const sequence_type& sequence
-) -> void
-{
-   const size_t size_neede = get_sequence_string_size(sequence);
-
-   const size_t capacity_left = target.capacity() - target.size();
-   if (capacity_left < size_neede)
-   {
-      target.reserve(target.capacity() + size_neede);
-   }
-}
-
-
-template<typename stream_type, cvtsw::sequence_c sequence_type>
-auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&
-{
-   using char_type = typename stream_type::char_type;
-   using string_type = std::basic_string<char_type>;
-   string_type temp;
-   detail::reserve_string_for_sequence(temp, sequence);
-   write_sequence_into_string(temp, sequence);
-   os << temp;
-   return os;
-}
-
-
-template<cvtsw::std_string_type string_type>
-cvtsw::screen<string_type>::screen(
-   const int width, const int height,
-   const int start_column, const int start_line,
-   const char_type fill_char
-)
-   : m_cells(width * height, cell<string_type>{fill_char})
-   , m_width(width)
-   , m_height(height)
-   , m_origin_line(start_line)
-   , m_origin_column(start_column)
-{
-   
-}
-
-
-template <cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_width() const -> int
-{
-   return m_width;
-}
-
-
-template <cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_height() const -> int
-{
-   return m_height;
 }
 
 
@@ -604,23 +507,32 @@ auto cvtsw::screen<string_type>::get_sequences() const -> std::vector<sequence_v
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::get_string_from_sequences(
-   const std::vector<sequence_variant_type>& sequences
-) -> string_type
+cvtsw::screen<string_type>::screen(
+   const int width, const int height,
+   const int start_column, const int start_line,
+   const char_type fill_char
+)
+   : m_cells(width* height, cell<string_type>{fill_char})
+   , m_width(width)
+   , m_height(height)
+   , m_origin_line(start_line)
+   , m_origin_column(start_column)
 {
-   size_t reserve_size{};
-   for (const auto& sequence : sequences)
-      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
 
-   string_type result_str;
-   result_str.reserve(reserve_size);
-   {
-      ZoneScopedN("writing sequence into string");
-      for (const sequence_variant_type& sequence : sequences)
-         std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
-   }
+}
 
-   return result_str;
+
+template <cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_width() const -> int
+{
+   return m_width;
+}
+
+
+template <cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_height() const -> int
+{
+   return m_height;
 }
 
 
@@ -643,8 +555,8 @@ auto cvtsw::screen<string_type>::write_into(
    const cell_format& formatting
 ) -> void
 {
-   const int ending_column = column + text.size();
-   if(ending_column >= m_width)
+   const int ending_column = column + static_cast<int>(text.size());
+   if (ending_column >= m_width)
    {
       // ERROR
    }
@@ -656,21 +568,47 @@ auto cvtsw::screen<string_type>::write_into(
 
 
 template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::is_inside(const int column, const int line) const -> bool
+{
+   return column >= 0 && column < m_width&& line >= 0 && line < m_height;
+}
+
+
+template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<string_type>&
 {
    const int index = line * m_width + column;
    return m_cells[index];
 }
+template struct cvtsw::screen<std::string>;
+template struct cvtsw::screen<std::wstring>;
 
 
+// Instantiated by cvtsw::screen<string_type>::get_string()
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::is_inside(const int column, const int line) const -> bool
+auto cvtsw::get_string_from_sequences(
+   const std::vector<sequence_variant_type>& sequences
+) -> string_type
 {
-   return column >= 0 && column < m_width && line >= 0 && line < m_height;
+   size_t reserve_size{};
+   for (const auto& sequence : sequences)
+      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
+
+   string_type result_str;
+   result_str.reserve(reserve_size);
+   {
+      ZoneScopedN("writing sequence into string");
+      for (const sequence_variant_type& sequence : sequences)
+         std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
+   }
+
+   return result_str;
 }
 
 
-#ifdef CM_IMPL
+
+
+
 auto cvtsw::position(const int line, const int column) -> position_sequence {
    const int effective_line = line + 1;
    const int effective_column = column + 1;
@@ -799,7 +737,7 @@ auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<s
 
 auto cvtsw::pixel_screen::get_string(const color& frame_color) const -> std::wstring
 {
-   return get_screen(frame_color).get_string();
+   return this->get_screen(frame_color).get_string();
 }
 
 
@@ -837,4 +775,80 @@ auto cvtsw::pixel_screen::get_color(
    const int index = halfline * m_width + column;
    return m_pixels[index];
 }
+
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::draw_state<string_type>::write_sequence(
+   std::vector<sequence_variant_type>& m_target_sequences,
+   const cell_type& target_cell_state,
+   const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
+   const cell_pos& target_pos,
+   const int origin_line,
+   const int origin_column
+) -> void
+{
+   // As long as there's no difference from last draw, don't do anything 
+   if (target_cell_state == old_cell_state)
+      return;
+
+   if (m_format.has_value() == false) {
+      m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
+      m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+      m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+      m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+   }
+   else {
+      // Apply differences between console state and the target state
+      if (target_cell_state.m_format.fg_color != m_format->fg_color)
+         m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
+      if (target_cell_state.m_format.bg_color != m_format->bg_color)
+         m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+      if (target_cell_state.m_format.m_underline != m_format->m_underline)
+         m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+      if (target_cell_state.m_format.m_bold != m_format->m_bold)
+         m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+   }
+
+   if (is_position_sequence_necessary(target_pos)) {
+      m_target_sequences.push_back(
+         position_sequence{
+            static_cast<uint8_t>(target_pos.get_line() + origin_line),
+            static_cast<uint8_t>(target_pos.get_column() + origin_column)
+         }
+      );
+   }
+
+   m_target_sequences.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
+
+   m_last_written_pos = target_pos;
+   m_format = target_cell_state.m_format;
+}
+
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
+   const cell_pos& target_pos
+) -> bool
+{
+   // There is was nothing written before, hence the cursor position is unknown
+   if (m_last_written_pos.has_value() == false)
+      return true;
+
+   const cell_pos current_cursor_pos = m_last_written_pos.value() + 1;
+
+   // The cursor position is known to be wrong
+   if (target_pos != current_cursor_pos)
+      return true;
+
+   // If we're on the "right" position according to the subset of the buffer, the position still
+   // needs to be set if there was a line jump.
+   if (current_cursor_pos.get_line() != m_last_written_pos->get_line())
+      return true;
+
+   return false;
+}
+// draw_state is instantiated by screen::get_sequences()
+
 #endif
