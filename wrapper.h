@@ -17,7 +17,7 @@ namespace cvtsw
    template<typename T>
    concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
 
-   // Feel free to static_cast, reinterpret_cast or memcopy your 3-byte color type into this.
+   // Feel free to bit_cast, reinterpret_cast or memcopy your 3-byte color type into this.
    struct color {
       uint8_t red = 0ui8;
       uint8_t green = 0ui8;
@@ -27,7 +27,7 @@ namespace cvtsw
 
    struct fg_rgb_color_sequence { color m_color; };
    struct fg_index_color_sequence { int m_index; };
-   struct set_index_color_sequence { int m_index; color m_color; };
+   struct set_index_color_sequence { int m_index{}; color m_color; };
    struct bg_rgb_color_sequence { color m_color; };
    struct bg_index_color_sequence { int m_index; };
    struct underline_sequence { bool m_underline; };
@@ -44,7 +44,7 @@ namespace cvtsw
 
 
    template<typename T, typename variant_type>
-   struct is_alternative : std::bool_constant<false> {};
+   struct is_alternative : std::false_type {};
 
    template<typename T, typename ... variant_alternatives>
    struct is_alternative<T, std::variant<variant_alternatives...>>
@@ -57,10 +57,6 @@ namespace cvtsw
 
    template<typename T>
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
-   template<typename T, typename ... Ts>
-   concept same_as_any = (std::same_as<T, Ts> || ...);
-   template<typename T>
-   concept alternative_start_c = same_as_any<T, set_index_color_sequence>;
 
 
    // Generators of sequences
@@ -335,16 +331,6 @@ namespace cvtsw
       template<cvtsw::std_string_type string_type>
       [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
 
-      template<sequence_c T, std_string_type string_type>
-      constexpr const char* sequence_start = "\x1b[";
-      
-      template<alternative_start_c T>
-      constexpr const char* sequence_start<T, std::string> = "\x1b]";
-      template<alternative_start_c T>
-      constexpr const wchar_t* sequence_start<T, std::wstring> = L"\x1b]";
-      template<sequence_c T>
-      constexpr const wchar_t* sequence_start<T, std::wstring> = L"\x1b[";
-
    } // namespace cvtsw::detail
 
 } // namespace cvtsw
@@ -363,7 +349,12 @@ auto cvtsw::write_sequence_into_string(
    else
    {
       using char_type = typename string_type::value_type;
-      target += detail::sequence_start<sequence_type, string_type>;
+
+      target += static_cast<char_type>('\x1b');
+      if constexpr(std::same_as<sequence_type, set_index_color_sequence>)
+         target += static_cast<char_type>(']');
+      else
+         target += static_cast<char_type>('[');
 
       if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence>)
       {
@@ -538,16 +529,6 @@ auto cvtsw::detail::reserve_string_for_sequence(
       target.reserve(target.capacity() + size_neede);
    }
 }
-
-// template<typename variant_type>
-// struct is_alternative{
-//    static_assert(sizeof(variant_type) < 0, "Can't use is_alternative with non-variant type");
-// };
-// template<typename... variant_alternatives>
-// struct is_alternative<std::variant<variant_alternatives...>> {
-//    constexpr static bool value = ((cvtsw::detail::get_sequence_string_size(variant_alternatives{}) > 0) && ...);
-// };
-// static_assert(is_alternative<cvtsw::sequence_variant_type>::value, "CAUGHT");
 
 
 template<typename stream_type, cvtsw::sequence_c sequence_type>

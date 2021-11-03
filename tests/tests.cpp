@@ -6,6 +6,8 @@
 #define CM_IMPL
 #include "../wrapper.h"
 
+#include "perf_tests.h"
+
 namespace {
 
 }
@@ -21,9 +23,13 @@ auto run_doctest() -> std::optional<int> {
 
 auto main() -> int
 {
+   std::cout << "\x1b[?25l"; // no cursor
+
    const std::optional<int> doctest_result = run_doctest();
    if (doctest_result.has_value())
       return doctest_result.value();
+
+   //run_perf_tests();
    return 0;
 }
 

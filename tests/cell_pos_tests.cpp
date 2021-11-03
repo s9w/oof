@@ -14,29 +14,4 @@ TEST_CASE("cell_pos")
       ++p0;
       CHECK(p0.is_end());
    }
-   SUBCASE("position access") {
-      detail::cell_pos p0{ 10, 5 };
-      CHECK_EQ(p0.get_relative_column(), 0);
-      CHECK_EQ(p0.get_relative_line(), 0);
-
-      ++p0;
-      CHECK_EQ(p0.get_relative_column(), 1);
-      CHECK_EQ(p0.get_relative_line(), 0);
-
-      p0.m_index = 10;
-      CHECK_EQ(p0.get_relative_column(), 0);
-      CHECK_EQ(p0.get_relative_line(), 1);
-   }
-
-   SUBCASE("jumping")
-   {
-      const detail::cell_pos p0{ 10, 5 };
-      detail::cell_pos jumped = p0 + 10;
-      CHECK_EQ(jumped.get_relative_column(), 0);
-      CHECK_EQ(jumped.get_relative_line(), 1);
-
-      detail::cell_pos p1 = p0;
-      p1.m_index = 10;
-      CHECK_EQ(p1, jumped);
-   }
 }

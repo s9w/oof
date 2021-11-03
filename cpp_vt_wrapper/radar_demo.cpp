@@ -45,7 +45,7 @@ auto radar_demo() -> void
    while(true){
 
       // Fading of all pixels to black
-      const int dim_runs = get_int(0.1 * pixel_count);
+      const int dim_runs = get_int(0.2 * pixel_count);
       for(int i=0; i< dim_runs; ++i){
          color& choice = rng.choice(px.m_pixels);
          choice = get_faded(choice);
@@ -63,13 +63,10 @@ auto radar_demo() -> void
                px.get_color(x, y) = color{ 255, 0, 0 };
          }
       }
-
-      // Printing
-      const std::wstring result_str = px.get_screen(color{ 0, 255, 0 }).get_string();
       
       timer.mark_frame();
 
-      fast_print(result_str);
+      fast_print(px.get_screen(color{ 0, 255, 0 }).get_string());
       const auto fps = timer.get_fps();
       if(fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));
