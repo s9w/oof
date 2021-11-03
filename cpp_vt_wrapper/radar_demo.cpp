@@ -33,27 +33,27 @@ namespace
 
 auto radar_demo() -> void
 {
-   constexpr int width = 80;
-   constexpr int height = 80;
+   constexpr int width = 60;
+   constexpr int height = 60;
+   constexpr int pixel_count = width * height;
    pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
    constexpr s9w::dvec2 center{ width / 2.0, height / 2.0 };
    constexpr s9w::dvec2 half_pixel_offset{ 0.5, 0.5 };
    constexpr double arm_length = height / 2.0 - 5.0;
 
-   const auto t0 = std::chrono::high_resolution_clock::now();
+   timer timer;
    while(true){
-      const auto t1 = std::chrono::high_resolution_clock::now();
-      const double seconds = std::chrono::duration<double>(t1 - t0).count();
 
       // Fading of all pixels to black
-      for(int i=0; i<7000; ++i){
+      const int dim_runs = get_int(0.1 * pixel_count);
+      for(int i=0; i< dim_runs; ++i){
          color& choice = rng.choice(px.m_pixels);
          choice = get_faded(choice);
       }
 
       // Radar arm
       constexpr double speed = 3.0;
-      const double radar_phi = std::fmod(speed * seconds, 2.0 * std::numbers::pi_v<double>);
+      const double radar_phi = std::fmod(speed * timer.get_seconds_since_start(), 2.0 * std::numbers::pi_v<double>);
       for(int y=0; y<height; ++y){
          for (int x = 0; x < width; ++x){
             const s9w::dvec2 pos = s9w::dvec2{ x, y } - center + half_pixel_offset;
@@ -66,6 +66,12 @@ auto radar_demo() -> void
 
       // Printing
       const std::wstring result_str = px.get_screen(color{ 0, 255, 0 }).get_string();
+      
+      timer.mark_frame();
+
       fast_print(result_str);
+      const auto fps = timer.get_fps();
+      if(fps.has_value())
+         set_window_title("FPS: " + std::to_string(*fps));
    }
 }
