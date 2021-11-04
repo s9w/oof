@@ -55,10 +55,8 @@ auto snow_demo() -> void
       }
    );
 
-   auto t_last = std::chrono::high_resolution_clock::now();
+   timer timer;
    while (true) {
-      const auto t1 = std::chrono::high_resolution_clock::now();
-      const double dt = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t_last).count() / 1'000'000.0;
 
       // draw bg
       for(int row=0; row<height; ++row)
@@ -92,7 +90,7 @@ auto snow_demo() -> void
       {
          if (flake.m_static)
             continue;
-         flake.m_pos.m_row += max_speed * flake.m_frontality * dt;
+         flake.m_pos.m_row += max_speed * flake.m_frontality * timer.get_dt();
       }
 
       // sticking
@@ -115,7 +113,7 @@ auto snow_demo() -> void
       }
 
       // New snow
-      if(rng.get_flip(0.2))
+      if(rng.get_flip(0.02))
       {
          snowflakes.push_back(
             snowflake{
@@ -150,10 +148,7 @@ auto snow_demo() -> void
          }
       );
 
-      // Printing
-      const std::wstring result_str = px.get_screen(color{ 0, 255, 0 }).get_string();
-      fast_print(result_str);
-
-      t_last = t1;
+      timer.mark_frame();
+       fast_print(px.get_string(color{ 0, 255, 0 }));
    }
 }

@@ -116,14 +116,14 @@ timer::timer()
 auto timer::get_dt() const -> double
 {
    const auto now = std::chrono::high_resolution_clock::now();
-   auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_tick_time).count() / 1000.0;
+   auto seconds = std::chrono::duration_cast<std::chrono::microseconds>(now - m_last_tick_time).count() / 1'000'000.0;
    return seconds;
 }
 
 auto timer::get_fps() -> std::optional<double>
 {
    const auto now = std::chrono::high_resolution_clock::now();
-   auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_fps_time).count() / 1000.0;
+   auto seconds = std::chrono::duration_cast<std::chrono::microseconds>(now - m_last_fps_time).count() / 1'000'000.0;
    if (seconds < 1.0)
       return std::nullopt;
    const double fps = m_fps_frame_count / seconds;

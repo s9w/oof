@@ -25,6 +25,7 @@ namespace cvtsw
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
 
+   //struct base {};
    struct fg_rgb_color_sequence { color m_color; };
    struct fg_index_color_sequence { int m_index; };
    struct set_index_color_sequence { int m_index{}; color m_color; };
@@ -168,10 +169,10 @@ namespace cvtsw
       std::vector<color> m_pixels;
 
    private:
-      int m_width = 0; // Width is identical between "pixels" and characters
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
       int m_origin_column = 0;
       int m_origin_halfline = 0;
+      mutable screen<std::wstring> m_screen;
 
    public:
       explicit pixel_screen(
@@ -186,12 +187,13 @@ namespace cvtsw
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
       [[nodiscard]] auto get_string(const color& frame_color) const -> std::wstring;
+      [[nodiscard]] auto get_width() const -> int;
 
       // If you want to override something in the screen
-      [[nodiscard]] auto get_screen(const color& frame_color) const -> screen<std::wstring>;
+      [[nodiscard]] auto get_screen_ref() -> screen<std::wstring>&;
 
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
-      [[nodiscard]] auto get_color(const int column, const int halfline)->color&;
+      [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
       [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
 
    private:
@@ -632,7 +634,7 @@ auto cvtsw::position(const int line, const int column) -> position_sequence {
 
 auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
    return fg_rgb_color_sequence{
-      color{
+      .m_color = color{
          static_cast<uint8_t>(r),
          static_cast<uint8_t>(g),
          static_cast<uint8_t>(b)
@@ -642,7 +644,7 @@ auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequ
 
 
 auto cvtsw::fg_color(const color& col) -> fg_rgb_color_sequence {
-   return fg_rgb_color_sequence{ col };
+   return fg_rgb_color_sequence{ .m_color=col };
 }
 
 
@@ -709,38 +711,37 @@ cvtsw::pixel_screen::pixel_screen(
    const color& fill_color
 )
    : m_pixels(width * halfline_height, fill_color)
-   , m_width(width)
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
+   , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, L'▀')
 {
 
 }
 
 
-auto cvtsw::pixel_screen::get_screen(const color& frame_color) const -> screen<std::wstring>
+auto cvtsw::pixel_screen::get_screen_ref() -> screen<std::wstring>&
 {
-   screen<std::wstring> result{ m_width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, L'▀' };
-   // This means fg color is on top
+   return m_screen;
+}
 
+
+auto cvtsw::pixel_screen::get_string(const color& frame_color) const -> std::wstring
+{
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
    // TODO iterator?
-   for (int line = 0; line < result.get_height(); ++line) {
-      for (int column = 0; column < result.get_width(); ++column) {
-         cell<std::wstring>& target_cell = result.get(column, line);
+   for (int line = 0; line < m_screen.get_height(); ++line) {
+      for (int column = 0; column < m_screen.get_width(); ++column) {
+         cell<std::wstring>& target_cell = m_screen.get(column, line);
          target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
          target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
       }
       halfline_top += 2;
       halfline_bottom += 2;
    }
-   return result;
-}
 
-auto cvtsw::pixel_screen::get_string(const color& frame_color) const -> std::wstring
-{
-   return this->get_screen(frame_color).get_string();
+   return m_screen.get_string();
 }
 
 
@@ -754,7 +755,7 @@ auto cvtsw::pixel_screen::get_line_height() const -> int
 
 auto cvtsw::pixel_screen::is_in(const int column, const int halfline) const -> bool
 {
-   const int index = halfline * m_width + column;
+   const int index = halfline * this->get_width() + column;
    const bool is_out = index < 0 || index >(m_pixels.size() - 1);
    return !is_out;
 }
@@ -765,7 +766,7 @@ auto cvtsw::pixel_screen::get_color(
    const int halfline
 ) const -> const color&
 {
-   const int index = halfline * m_width + column;
+   const int index = halfline * this->get_width() + column;
    return m_pixels[index];
 }
 
@@ -775,10 +776,15 @@ auto cvtsw::pixel_screen::get_color(
    const int halfline
 ) -> color&
 {
-   const int index = halfline * m_width + column;
+   const int index = halfline * this->get_width() + column;
    return m_pixels[index];
 }
 
+
+auto cvtsw::pixel_screen::get_width() const -> int
+{
+   return m_screen.get_width();
+}
 
 
 template<cvtsw::std_string_type string_type>
