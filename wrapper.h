@@ -600,11 +600,9 @@ auto cvtsw::get_string_from_sequences(
 
 
 auto cvtsw::position(const int line, const int column) -> position_sequence {
-   const int effective_line = line + 1;
-   const int effective_column = column + 1;
    return position_sequence{
-      .m_line = static_cast<uint8_t>(effective_line),
-      .m_column = static_cast<uint8_t>(effective_column)
+      .m_line = static_cast<uint8_t>(line),
+      .m_column = static_cast<uint8_t>(column)
    };
 }
 
