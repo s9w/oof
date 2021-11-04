@@ -64,32 +64,20 @@ namespace cvtsw
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence;
    [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
    [[nodiscard]] auto fg_color(const int index) -> fg_index_color_sequence;
-   constexpr size_t   fg_color_max = 3 + 16;
-
-   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
 
    [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence;
    [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
    [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
-   constexpr size_t   bg_color_max = 3 + 16;
+
+   [[nodiscard]] auto set_index_color(const int index, const color& col)->set_index_color_sequence;
    
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
-   constexpr size_t   underline_max = 3 + 2;
-
    [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
-   constexpr size_t   bold_max = 3 + 2;
+   [[nodiscard]] auto reset_formatting()->reset_sequence;
 
-   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
-   constexpr size_t   position_max = 3 + 2*3+1;
-
+   [[nodiscard]] auto position(const int line, const int column)->position_sequence;
    //[[nodiscard]] auto vposition(const int line) -> detail::vpos_params;
-   //constexpr size_t   vposition_max = 3 + 3;
-
    //[[nodiscard]] auto hposition(const int column) -> detail::hpos_params;
-   //constexpr size_t   hposition_max = 3 + 3;
-
-   [[nodiscard]] auto reset_formatting() -> reset_sequence;
-   constexpr size_t   reset_max = 3 + 1;
 
    template<typename stream_type, cvtsw::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
@@ -257,7 +245,7 @@ namespace cvtsw
          ) -> void;
 
       private:
-         [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) -> bool;
+         [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) const -> bool;
       };
 
 
@@ -611,13 +599,13 @@ auto cvtsw::get_string_from_sequences(
 }
 
 
-
-
-
 auto cvtsw::position(const int line, const int column) -> position_sequence {
    const int effective_line = line + 1;
    const int effective_column = column + 1;
-   return position_sequence{ static_cast<uint8_t>(effective_line), static_cast<uint8_t>(effective_column) };
+   return position_sequence{
+      .m_line = static_cast<uint8_t>(effective_line),
+      .m_column = static_cast<uint8_t>(effective_column)
+   };
 }
 
 
@@ -822,8 +810,8 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
    if (this->is_position_sequence_necessary(target_pos)) {
       m_target_sequences.push_back(
          position_sequence{
-            static_cast<uint8_t>(target_pos.get_line() + origin_line),
-            static_cast<uint8_t>(target_pos.get_column() + origin_column)
+            .m_line = static_cast<uint8_t>(target_pos.get_line() + origin_line),
+            .m_column = static_cast<uint8_t>(target_pos.get_column() + origin_column)
          }
       );
    }
@@ -839,7 +827,7 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
    const cell_pos& target_pos
-) -> bool
+) const -> bool
 {
    // There is was nothing written before, hence the cursor position is unknown
    if (m_last_written_pos.has_value() == false)
