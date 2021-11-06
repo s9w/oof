@@ -28,7 +28,8 @@ namespace{
 
 auto color_dot_demo() -> void
 {
-   pixel_screen px{ 60, 60, 0, 0, color{0, 0, 0} };
+   pixel_screen px{ 300, 170, 0, 0, color{0, 0, 0} };
+   //pixel_screen px{ 60, 60, 0, 0, color{0, 0, 0} };
 
    constexpr auto get_faded = [](const color& col) {
       constexpr int fade_amount = 1;
@@ -49,7 +50,7 @@ auto color_dot_demo() -> void
          }
       }
 
-      if(i%5==0)
+      //if(i%5==0)
          rng.choice(px.m_pixels) = get_random_color();
 
       timer.mark_frame();
