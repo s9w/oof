@@ -1,5 +1,7 @@
 #include "cursor_trail_demo.h"
 
+#include <s9w/s9w_geom_alg.h>
+
 #include "../wrapper.h"
 using namespace cvtsw;
 #include "tools.h"
@@ -11,26 +13,26 @@ namespace {
 
    s9w::rng_state rng;
 
-   auto get_columns_rows() -> std::pair<int, int> {
+   auto get_screen_cell_dimensions() -> s9w::ivec2 {
       CONSOLE_SCREEN_BUFFER_INFO csbi;
-      int columns, rows;
       GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-      columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-      rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-      return { columns, rows };
+      return s9w::ivec2{
+         csbi.srWindow.Right - csbi.srWindow.Left + 1,
+         csbi.srWindow.Bottom - csbi.srWindow.Top + 1
+      };
    }
 
-   auto get_font_width_height() -> std::pair<int, int> {
+   auto get_font_width_height() -> s9w::ivec2 {
       CONSOLE_FONT_INFOEX result;
       result.cbSize = sizeof(CONSOLE_FONT_INFOEX);
       GetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), false, &result);
-      return { result.dwFontSize.X, result.dwFontSize.Y };
+      return s9w::ivec2{ result.dwFontSize.X, result.dwFontSize.Y };
    }
 
-   auto get_canvas_size() -> std::pair<int, int> {
-      const auto& [font_width, font_height] = get_font_width_height();
-      const auto& [columns, rows] = get_columns_rows();
-      return { columns * font_width, rows * font_height };
+   auto get_canvas_size() -> s9w::ivec2 {
+      const s9w::ivec2 font_pixel_size = get_font_width_height();
+      const s9w::ivec2 scree_cell_dimensions = get_screen_cell_dimensions();
+      return scree_cell_dimensions * font_pixel_size;
    }
 
    // Source: https://devblogs.microsoft.com/oldnewthing/20131017-00/?p=2903
@@ -54,19 +56,20 @@ namespace {
       return window_rect;
    }
 
-   auto get_cursor_pos_xy() -> std::pair<int, int> {
+   auto get_cursor_pixel_pos() -> s9w::ivec2 {
       POINT point;
       GetCursorPos(&point);
 
       const RECT window_rect = get_window_rect();
-      const int x = point.x - window_rect.left;
-      const int y = point.y - window_rect.top;
-      return { x, y };
+      return s9w::ivec2{
+         static_cast<int>(point.x - window_rect.left),
+         static_cast<int>(point.y - window_rect.top)
+      };
    }
 
    // Ideal if: 0.5 -> 0; 0 -> 0.5; -0.5 -> 1.0
    auto get_sdf_intensity(const double sdf) -> double {
-      return std::clamp(-sdf+0.5, 0.0, 1.0);
+      return std::clamp(-sdf + 0.5, 0.0, 1.0);
    }
 
    auto get_multiplied_color(
@@ -102,10 +105,10 @@ namespace {
 
 auto cursor_trail_demo() -> void
 {
-   const auto& [font_width, font_height] = get_font_width_height();
-   const auto& [canvas_width, canvas_height] = get_canvas_size();
-   const int max_lines = canvas_height / font_height;
-   const int max_columns = canvas_width / font_width;
+   const s9w::ivec2 font_pixel_size = get_font_width_height();
+   const s9w::ivec2 canvas_pixel_size = get_canvas_size();
+   const int max_lines = canvas_pixel_size[1] / font_pixel_size[1];
+   const int max_columns = canvas_pixel_size[0] / font_pixel_size[0];
 
    pixel_screen canvas(max_columns, 2 * max_lines, 0, 0, color{});
    timer timer;
@@ -113,10 +116,7 @@ auto cursor_trail_demo() -> void
 
    double fade_amount = 0.0;
    while (true) {
-      const auto cursor_pos = get_cursor_pos_xy();
-      const int cursor_column = cursor_pos.first / font_width;
-      const int cursor_line = cursor_pos.second / font_height;
-      const int cursor_halfline = cursor_pos.second / (font_height/2);
+      const s9w::dvec2 cursor_cell_pos = s9w::dvec2{ get_cursor_pixel_pos() } / s9w::dvec2{ font_pixel_size[0], font_pixel_size[1]/2};
 
       // Fading
       fade_amount += 200.0 * timer.get_dt();
@@ -128,15 +128,13 @@ auto cursor_trail_demo() -> void
             col = get_faded_color(col, effective_amount);
       }
 
-      const double cursor_x = static_cast<double>(cursor_pos.first) / font_width;
-      const double cursor_y = static_cast<double>(cursor_pos.second) / (font_height / 2);
       for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
          for (int column = 0; column < canvas.get_width(); ++column) {
-            const double cell_y = halfline + 0.5;
-            const double cell_x = column + 0.5;
-            const double dx = cell_x - cursor_x;
-            const double dy = cell_y - cursor_y;
-            const double dist = std::sqrt(dx * dx + dy * dy);
+            const s9w::dvec2 cell_pos{
+               column + 0.5,
+               halfline + 0.5
+            };
+            const double dist = s9w::get_length(cell_pos - cursor_cell_pos);
 
             constexpr double circle_radius = 5.0;
             const double circle_sdf = dist - circle_radius;
