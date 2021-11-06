@@ -5,8 +5,7 @@ using namespace cvtsw;
 #include "tools.h"
 
 #include <s9w/s9w_rng.h>
-
-#include <iostream>
+#include <s9w/s9w_geom_types.h>
 
 namespace {
 
@@ -35,30 +34,31 @@ namespace {
    }
 
    // Source: https://devblogs.microsoft.com/oldnewthing/20131017-00/?p=2903
-   bool UnadjustWindowRectEx(LPRECT prc, DWORD dwStyle, BOOL fMenu, DWORD dwExStyle) {
+   auto UnadjustWindowRectEx(LPRECT prc, DWORD dwStyle, BOOL fMenu, DWORD dwExStyle) -> void {
       RECT rc;
       SetRectEmpty(&rc);
-      BOOL fRc = AdjustWindowRectEx(&rc, dwStyle, fMenu, dwExStyle);
-      if (fRc) {
-         prc->left -= rc.left;
-         prc->top -= rc.top;
-         prc->right -= rc.right;
-         prc->bottom -= rc.bottom;
-      }
-      return fRc;
+      AdjustWindowRectEx(&rc, dwStyle, fMenu, dwExStyle);
+      prc->left -= rc.left;
+      prc->top -= rc.top;
+      prc->right -= rc.right;
+      prc->bottom -= rc.bottom;
+   }
+
+   auto get_window_rect() -> RECT{
+      RECT window_rect;
+      HWND const console_window = GetConsoleWindow();
+      GetWindowRect(console_window, &window_rect);
+      const DWORD dw_style = static_cast<DWORD>(GetWindowLong(console_window, GWL_STYLE));
+      const DWORD dw_ex_style = static_cast<DWORD>(GetWindowLong(console_window, GWL_EXSTYLE));
+      UnadjustWindowRectEx(&window_rect, dw_style, FALSE, dw_ex_style);
+      return window_rect;
    }
 
    auto get_cursor_pos_xy() -> std::pair<int, int> {
       POINT point;
       GetCursorPos(&point);
 
-      RECT window_rect;
-      const HWND console_window = GetConsoleWindow();
-      GetWindowRect(console_window, &window_rect);
-      DWORD dwStyle = (DWORD)GetWindowLong(console_window, GWL_STYLE);
-      DWORD dwExStyle = (DWORD)GetWindowLong(console_window, GWL_EXSTYLE);
-      UnadjustWindowRectEx(&window_rect, dwStyle, FALSE, dwExStyle);
-
+      const RECT window_rect = get_window_rect();
       const int x = point.x - window_rect.left;
       const int y = point.y - window_rect.top;
       return { x, y };
@@ -74,12 +74,31 @@ namespace {
       const double factor
    ) -> color {
       return color{
-         std::clamp(get_int<uint8_t>(col.red * factor), 0ui8, 255ui8),
-         std::clamp(get_int<uint8_t>(col.green * factor), 0ui8, 255ui8),
-         std::clamp(get_int<uint8_t>(col.blue * factor), 0ui8, 255ui8)
+         get_int<uint8_t>(std::clamp(col.red * factor, 0.0, 255.0)),
+         get_int<uint8_t>(std::clamp(col.green * factor, 0.0, 255.0)),
+         get_int<uint8_t>(std::clamp(col.blue * factor, 0.0, 255.0))
       };
    }
-}
+
+   auto get_max_color(
+      const color& a,
+      const color& b
+   ) -> color {
+      return color{
+         std::max(a.red, b.red),
+         std::max(a.green, b.green),
+         std::max(a.blue, b.blue)
+      };
+   }
+
+   auto get_faded_color(const color& col, const int fade_amount) -> color{
+      return color{
+         static_cast<uint8_t>(std::clamp(col.red - fade_amount, 0, 255)),
+         static_cast<uint8_t>(std::clamp(col.green - fade_amount, 0, 255)),
+         static_cast<uint8_t>(std::clamp(col.blue - fade_amount, 0, 255))
+      };
+   }
+} // namespace {}
 
 auto cursor_trail_demo() -> void
 {
@@ -88,17 +107,8 @@ auto cursor_trail_demo() -> void
    const int max_lines = canvas_height / font_height;
    const int max_columns = canvas_width / font_width;
 
-   pixel_screen px(max_columns, 2 * max_lines, 0, 0, color{});
+   pixel_screen canvas(max_columns, 2 * max_lines, 0, 0, color{});
    timer timer;
-
-   constexpr auto get_faded_color = [](const color& col, const int fade_amount) {
-      return color{
-         static_cast<uint8_t>(std::clamp(col.red - fade_amount, 0, 255)),
-         static_cast<uint8_t>(std::clamp(col.green - fade_amount, 0, 255)),
-         static_cast<uint8_t>(std::clamp(col.blue - fade_amount, 0, 255))
-      };
-   };
-
    color draw_color{ 255, 0, 0 };
 
    double fade_amount = 0.0;
@@ -109,40 +119,35 @@ auto cursor_trail_demo() -> void
       const int cursor_halfline = cursor_pos.second / (font_height/2);
 
       // Fading
-      fade_amount += 50.0 * timer.get_dt();
+      fade_amount += 200.0 * timer.get_dt();
       if (fade_amount >= 1.0) {
          const int effective_amount = static_cast<int>(fade_amount);
          fade_amount -= effective_amount;
 
-         for (auto& col : px)
+         for (color& col : canvas)
             col = get_faded_color(col, effective_amount);
       }
 
-      // Don't progress if cursor is out of window to prevent math explosions
-      if (cursor_column >= 0 && cursor_column < max_columns && cursor_halfline >= 0 && cursor_line < max_lines)
-      {
-         const double cursor_x = static_cast<double>(cursor_pos.first) / font_width;
-         const double cursor_y = static_cast<double>(cursor_pos.second) / (font_height / 2);
-         for (int halfline = 0; halfline < px.get_height(); ++halfline) {
-            for (int column = 0; column < px.get_width(); ++column) {
-               const double cell_y = halfline + 0.5;
-               const double cell_x = column + 0.5;
-               const double dx = cell_x - cursor_x;
-               const double dy = cell_y - cursor_y;
-               const double dist = std::sqrt(dx * dx + dy * dy);
+      const double cursor_x = static_cast<double>(cursor_pos.first) / font_width;
+      const double cursor_y = static_cast<double>(cursor_pos.second) / (font_height / 2);
+      for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
+         for (int column = 0; column < canvas.get_width(); ++column) {
+            const double cell_y = halfline + 0.5;
+            const double cell_x = column + 0.5;
+            const double dx = cell_x - cursor_x;
+            const double dy = cell_y - cursor_y;
+            const double dist = std::sqrt(dx * dx + dy * dy);
 
-               constexpr double circle_radius = 9.0;
-               const double ring_width = 2.0 + std::sin(3.0 * timer.get_seconds_since_start());
-               const double circle_sdf = dist - circle_radius;
-               const double ring_sdf = std::abs(circle_sdf) - ring_width;
+            constexpr double circle_radius = 5.0;
+            const double circle_sdf = dist - circle_radius;
 
-               px.get_color(column, halfline) = get_multiplied_color(draw_color, get_sdf_intensity(ring_sdf));
-            }
+            const color brush_color = get_multiplied_color(draw_color, get_sdf_intensity(circle_sdf));
+            canvas.get_color(column, halfline) = get_max_color(canvas.get_color(column, halfline), brush_color);
          }
       }
 
       timer.mark_frame();
-      fast_print(px.get_string(color{ 0, 0, 0 }));
+      fast_print(canvas.get_string(color{ 0, 0, 0 }));
       const auto fps = timer.get_fps();
       if (fps.has_value()) {
          set_window_title("FPS: " + std::to_string(*fps));

@@ -9,28 +9,20 @@ using namespace cvtsw;
 #include <chrono>
 
 #include <s9w/s9w_rng.h>
-#include <tracy/Tracy.hpp>
 
+#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 
 
-
 template<typename char_type>
-__declspec(noinline)
 auto fast_print(const std::basic_string<char_type>& sss) -> void {
-   ZoneScoped;
-   LPDWORD chars_written = 0;
-   HANDLE output_handle;
-   {
-      ZoneScopedN("GetStdHandle()");
-      output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-   }
+   const HANDLE output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
    const auto char_count = static_cast<DWORD>(sss.length());
    if constexpr (std::same_as<char_type, char>)
-      WriteConsoleA(output_handle, sss.c_str(), char_count, chars_written, 0);
+      WriteConsoleA(output_handle, sss.c_str(), char_count, nullptr, nullptr);
    else
-      WriteConsoleW(output_handle, sss.c_str(), char_count, chars_written, 0);
+      WriteConsoleW(output_handle, sss.c_str(), char_count, nullptr, nullptr);
 }
 
 
