@@ -25,7 +25,6 @@ namespace cvtsw
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
 
-   //struct base {};
    struct fg_rgb_color_sequence { color m_color; };
    struct fg_index_color_sequence { int m_index; };
    struct set_index_color_sequence { int m_index{}; color m_color; };
@@ -34,6 +33,10 @@ namespace cvtsw
    struct underline_sequence { bool m_underline; };
    struct bold_sequence { bool m_bold; };
    struct position_sequence { uint8_t m_line; uint8_t m_column; };
+   struct move_left_sequence { uint8_t m_amount; };
+   struct move_right_sequence { uint8_t m_amount; };
+   struct move_up_sequence { uint8_t m_amount; };
+   struct move_down_sequence { uint8_t m_amount; };
    struct char_sequence { char m_letter; };
    struct wchar_sequence { wchar_t m_letter; };
    struct reset_sequence { };
@@ -54,7 +57,11 @@ namespace cvtsw
    template<typename T, typename variant_type>
    constexpr bool is_alternative_v = is_alternative<T, variant_type>::value;
 
-   using sequence_variant_type = std::variant<fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, set_index_color_sequence>;
+   using sequence_variant_type = std::variant<
+      fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, set_index_color_sequence,
+      underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence,
+      move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence
+   >;
 
    template<typename T>
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
@@ -69,13 +76,17 @@ namespace cvtsw
    [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
    [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
 
-   [[nodiscard]] auto set_index_color(const int index, const color& col)->set_index_color_sequence;
+   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
    
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
    [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
-   [[nodiscard]] auto reset_formatting()->reset_sequence;
+   [[nodiscard]] auto reset_formatting() -> reset_sequence;
 
-   [[nodiscard]] auto position(const int line, const int column)->position_sequence;
+   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
+   [[nodiscard]] auto move_left(const int amount) -> move_left_sequence;
+   [[nodiscard]] auto move_right(const int amount) -> move_right_sequence;
+   [[nodiscard]] auto move_up(const int amount) -> move_up_sequence;
+   [[nodiscard]] auto move_down(const int amount) -> move_down_sequence;
    //[[nodiscard]] auto vposition(const int line) -> detail::vpos_params;
    //[[nodiscard]] auto hposition(const int column) -> detail::hpos_params;
 
@@ -176,6 +187,7 @@ namespace cvtsw
       
       [[nodiscard]] auto get_string(const color& frame_color) const -> std::wstring;
       [[nodiscard]] auto get_width() const -> int;
+      [[nodiscard]] auto get_height() const -> int;
 
       // If you want to override something in the screen
       [[nodiscard]] auto get_screen_ref() -> screen<std::wstring>&;
@@ -193,8 +205,8 @@ namespace cvtsw
       template<cvtsw::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
 
-      template<cvtsw::std_string_type string_type>
-      auto write_int_to_string(string_type& target, const int value, const bool with_leading_semicolon) -> void;
+      template<cvtsw::std_string_type string_type, std::integral int_type>
+      auto write_int_to_string(string_type& target, const int_type value, const bool with_leading_semicolon) -> void;
 
       struct cell_pos {
          int m_index = 0;
@@ -259,6 +271,9 @@ namespace cvtsw
       template<cvtsw::std_string_type string_type>
       [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
 
+      template<typename T, typename ... types>
+      constexpr bool is_any_of = (std::same_as<T, types> || ...);
+
    } // namespace cvtsw::detail
 
 } // namespace cvtsw
@@ -302,12 +317,26 @@ template<cvtsw::sequence_c sequence_type>
          reserve_size += semicolon_size;
          reserve_size += get_int_param_str_length(sequence.m_column);
       }
+      
       else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
       {
          reserve_size += 1;
       }
+      else if constexpr (is_any_of<sequence_type, move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence>)
+      {
+         reserve_size += get_int_param_str_length(sequence.m_amount);
+      }
+      else if constexpr (std::is_same_v<sequence_type, fg_index_color_sequence>)
+      {
+         reserve_size += 5; // "38;5;"
+         reserve_size += get_int_param_str_length(sequence.m_index);
+      }
+      else if constexpr (std::is_same_v<sequence_type, set_index_color_sequence>)
+      {
+         reserve_size += 5; // "38;5;"
+         reserve_size += get_int_param_str_length(sequence.m_index);
+      }
 
-      //reserve_size += n-1; // semicolons
       reserve_size += 3; // 2 intro, 1 outro
       return reserve_size;
    }
@@ -331,10 +360,10 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 #ifdef CM_IMPL
 
 // Instantiated by write_ints_into_string()
-template<cvtsw::std_string_type string_type>
+template<cvtsw::std_string_type string_type, std::integral int_type>
 auto cvtsw::detail::write_int_to_string(
    string_type& target,
-   const int value,
+   const int_type value,
    const bool with_leading_semicolon
 ) -> void
 {
@@ -357,7 +386,7 @@ template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
 auto cvtsw::detail::write_ints_into_string(string_type& target, const T& first, const Ts&... rest) -> void
 {
    detail::write_int_to_string(target, first, false);
-   ((detail::write_int_to_string(target, rest, true)), ...);
+   (detail::write_int_to_string(target, rest, true), ...);
 }
 
 
@@ -421,6 +450,26 @@ auto cvtsw::write_sequence_into_string(
       {
          detail::write_ints_into_string(target, sequence.m_line + 1, sequence.m_column + 1);
          target += static_cast<char_type>('H');
+      }
+      else if constexpr (std::is_same_v<sequence_type, move_down_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_amount);
+         target += static_cast<char_type>('B');
+      }
+      else if constexpr (std::is_same_v<sequence_type, move_up_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_amount);
+         target += static_cast<char_type>('A');
+      }
+      else if constexpr (std::is_same_v<sequence_type, move_left_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_amount);
+         target += static_cast<char_type>('D');
+      }
+      else if constexpr (std::is_same_v<sequence_type, move_right_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_amount);
+         target += static_cast<char_type>('C');
       }
       else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
       {
@@ -607,6 +656,30 @@ auto cvtsw::position(const int line, const int column) -> position_sequence {
 }
 
 
+auto cvtsw::move_left(const int amount) -> move_left_sequence
+{
+   return move_left_sequence{ static_cast<uint8_t>(amount)};
+}
+
+
+auto cvtsw::move_right(const int amount) -> move_right_sequence
+{
+   return move_right_sequence{ static_cast<uint8_t>(amount) };
+}
+
+
+auto cvtsw::move_up(const int amount) -> move_up_sequence
+{
+   return move_up_sequence{ static_cast<uint8_t>(amount) };
+}
+
+
+auto cvtsw::move_down(const int amount) -> move_down_sequence
+{
+   return move_down_sequence{ static_cast<uint8_t>(amount) };
+}
+
+
 //auto cvtsw::vposition(const int line)-> detail::vpos_params{
 //   const int effective_line = line + 1;
 //   return detail::vpos_params{ effective_line };
@@ -770,6 +843,12 @@ auto cvtsw::pixel_screen::get_color(
 auto cvtsw::pixel_screen::get_width() const -> int
 {
    return m_screen.get_width();
+}
+
+
+auto cvtsw::pixel_screen::get_height() const -> int
+{
+   return m_halfline_height;
 }
 
 
