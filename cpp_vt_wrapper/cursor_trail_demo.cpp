@@ -29,6 +29,13 @@ namespace {
       return s9w::ivec2{ result.dwFontSize.X, result.dwFontSize.Y };
    }
 
+   // We're drawing "half" lines, so the relevant font size is halved in height
+   auto get_halfline_font_pixel_size() -> s9w::ivec2
+   {
+      const s9w::ivec2 full_font_size = get_font_width_height();
+      return s9w::ivec2{ full_font_size[0], full_font_size[1]/2 };
+   }
+
    auto get_canvas_size() -> s9w::ivec2 {
       const s9w::ivec2 font_pixel_size = get_font_width_height();
       const s9w::ivec2 scree_cell_dimensions = get_screen_cell_dimensions();
@@ -36,31 +43,27 @@ namespace {
    }
 
    // Source: https://devblogs.microsoft.com/oldnewthing/20131017-00/?p=2903
-   auto UnadjustWindowRectEx(LPRECT prc, DWORD dwStyle, BOOL fMenu, DWORD dwExStyle) -> void {
-      RECT rc;
-      SetRectEmpty(&rc);
-      AdjustWindowRectEx(&rc, dwStyle, fMenu, dwExStyle);
-      prc->left -= rc.left;
-      prc->top -= rc.top;
-      prc->right -= rc.right;
-      prc->bottom -= rc.bottom;
-   }
-
    auto get_window_rect() -> RECT{
-      RECT window_rect;
-      HWND const console_window = GetConsoleWindow();
-      GetWindowRect(console_window, &window_rect);
-      const DWORD dw_style = static_cast<DWORD>(GetWindowLong(console_window, GWL_STYLE));
-      const DWORD dw_ex_style = static_cast<DWORD>(GetWindowLong(console_window, GWL_EXSTYLE));
-      UnadjustWindowRectEx(&window_rect, dw_style, FALSE, dw_ex_style);
+      RECT window_rect{};
+      GetWindowRect(GetConsoleWindow(), &window_rect);
+
+      RECT corrections{};
+      const DWORD dwStyle = static_cast<DWORD>(GetWindowLong(GetConsoleWindow(), GWL_STYLE));
+      const DWORD dwExStyle = static_cast<DWORD>(GetWindowLong(GetConsoleWindow(), GWL_EXSTYLE));
+      constexpr bool fMenu = false;
+      AdjustWindowRectEx(&corrections, dwStyle, fMenu, dwExStyle);
+
+      window_rect.left -= corrections.left;
+      window_rect.top -= corrections.top;
+      window_rect.right -= corrections.right;
+      window_rect.bottom -= corrections.bottom;
       return window_rect;
    }
 
-   auto get_cursor_pixel_pos() -> s9w::ivec2 {
+   auto get_cursor_pixel_pos(const RECT& window_rect) -> s9w::ivec2 {
       POINT point;
       GetCursorPos(&point);
-
-      const RECT window_rect = get_window_rect();
+      
       return s9w::ivec2{
          static_cast<int>(point.x - window_rect.left),
          static_cast<int>(point.y - window_rect.top)
@@ -105,19 +108,17 @@ namespace {
 
 auto cursor_trail_demo() -> void
 {
-   const s9w::ivec2 font_pixel_size = get_font_width_height();
+   const s9w::ivec2 halfline_font_pixel_size = get_halfline_font_pixel_size();
    const s9w::ivec2 canvas_pixel_size = get_canvas_size();
-   const int max_lines = canvas_pixel_size[1] / font_pixel_size[1];
-   const int max_columns = canvas_pixel_size[0] / font_pixel_size[0];
+   const s9w::ivec2 canvas_dimensions = canvas_pixel_size / halfline_font_pixel_size;
 
-   pixel_screen canvas(max_columns, 2 * max_lines, 0, 0, color{});
+   const RECT window_rect = get_window_rect();
+   pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1], 0, 0, color{});
    timer timer;
    color draw_color{ 255, 0, 0 };
-
    double fade_amount = 0.0;
-   while (true) {
-      const s9w::dvec2 cursor_cell_pos = s9w::dvec2{ get_cursor_pixel_pos() } / s9w::dvec2{ font_pixel_size[0], font_pixel_size[1]/2};
 
+   while (true) {
       // Fading
       fade_amount += 200.0 * timer.get_dt();
       if (fade_amount >= 1.0) {
@@ -128,22 +129,21 @@ auto cursor_trail_demo() -> void
             col = get_faded_color(col, effective_amount);
       }
 
+      // Drawing of the circle with SDFs
+      const s9w::dvec2 cursor_cell_pos = s9w::dvec2{ get_cursor_pixel_pos(window_rect) } / s9w::dvec2{ halfline_font_pixel_size };
       for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
          for (int column = 0; column < canvas.get_width(); ++column) {
-            const s9w::dvec2 cell_pos{
-               column + 0.5,
-               halfline + 0.5
-            };
-            const double dist = s9w::get_length(cell_pos - cursor_cell_pos);
+            const s9w::dvec2 cell_pos = s9w::dvec2{column, halfline} + s9w::dvec2{0.5};
 
             constexpr double circle_radius = 5.0;
-            const double circle_sdf = dist - circle_radius;
+            const double circle_sdf = s9w::get_length(cell_pos - cursor_cell_pos) - circle_radius;
 
-            const color brush_color = get_multiplied_color(draw_color, get_sdf_intensity(circle_sdf));
-            canvas.get_color(column, halfline) = get_max_color(canvas.get_color(column, halfline), brush_color);
+            const color effective_brush_color = get_multiplied_color(draw_color, get_sdf_intensity(circle_sdf));
+            canvas.get_color(column, halfline) = get_max_color(canvas.get_color(column, halfline), effective_brush_color);
          }
       }
 
+      // Timing things; FPS; change of color
       timer.mark_frame();
       fast_print(canvas.get_string(color{ 0, 0, 0 }));
       const auto fps = timer.get_fps();

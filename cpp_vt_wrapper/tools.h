@@ -17,7 +17,7 @@ using namespace cvtsw;
 
 template<typename char_type>
 auto fast_print(const std::basic_string<char_type>& sss) -> void {
-   const HANDLE output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+   HANDLE const output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
    const auto char_count = static_cast<DWORD>(sss.length());
    if constexpr (std::same_as<char_type, char>)
       WriteConsoleA(output_handle, sss.c_str(), char_count, nullptr, nullptr);
@@ -135,7 +135,7 @@ auto timer::mark_frame() -> void
 auto timer::get_total_ms() const -> std::string
 {
    const auto now = std::chrono::high_resolution_clock::now();
-   auto ms = std::chrono::duration_cast<std::chrono::microseconds>(now - m_start_time).count() / 1000.0;
+   const auto ms = std::chrono::duration_cast<std::chrono::microseconds>(now - m_start_time).count() / 1000.0;
    std::string result = m_description;
    result += ": ";
    result += std::to_string(ms);
@@ -147,6 +147,6 @@ auto timer::get_total_ms() const -> std::string
 auto timer::get_seconds_since_start() const -> double
 {
    const auto now = std::chrono::high_resolution_clock::now();
-   auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start_time).count() / 1000.0;
+   const auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start_time).count() / 1000.0;
    return seconds;
 }
