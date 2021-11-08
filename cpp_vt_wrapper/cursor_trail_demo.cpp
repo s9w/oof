@@ -140,7 +140,6 @@ auto cursor_trail_demo() -> void
             constexpr double circle_radius = 5.0;
             const double circle_sdf = s9w::get_length(cell_pos - cursor_cell_pos) - circle_radius;
 
-
             const s9w::srgb_u effective_brush_color = get_sdf_intensity(circle_sdf) * draw_color;
             const s9w::srgb_u canvas_color = std::bit_cast<s9w::srgb_u>(canvas.get_color(column, halfline));
             const s9w::srgb_u result_color = get_max_color(canvas_color, effective_brush_color);

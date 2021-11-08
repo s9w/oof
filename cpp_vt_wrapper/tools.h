@@ -36,6 +36,17 @@ auto get_int(const double in) -> return_type {
    return static_cast<return_type>(std::round(in));
 }
 
+template <class T>
+void append_moved(std::vector<T>& dst, std::vector<T>&& src) {
+   if (dst.empty())
+      dst = std::move(src);
+   else {
+      dst.reserve(dst.size() + src.size());
+      std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+      src.clear();
+   }
+}
+
 
 template<typename T, typename pred_type>
 auto remove_from_vector(
