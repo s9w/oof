@@ -18,34 +18,34 @@ namespace{
    struct rocket{
       s9w::dvec2 m_pos;
       s9w::dvec2 m_velocity;
-      double m_trail_spread = 0.5;
-      double m_mass = 50.0;
-      s9w::hsluv_d m_color_range0{ 50.0, 100.0, 70.0 };
-      s9w::hsluv_d m_color_range1{ 70.0, 100.0, 100.0 };
-      
-      rocket(const s9w::dvec2& pos, const s9w::dvec2& velocity, const double trail_spread, const double mass, const s9w::hsluv_d& color_range0, const s9w::hsluv_d& color_range1)
-         : m_pos(pos)
-         , m_velocity(velocity)
-         , m_trail_spread(trail_spread)
-         , m_mass(mass)
-         , m_color_range0(color_range0)
-         , m_color_range1(color_range1)
-      {}
-      
+      double m_trail_spread{};
+      double m_mass{};
+      s9w::hsluv_d m_color_range0{};
+      s9w::hsluv_d m_color_range1{};
    };
 
    struct big_rocket : rocket{
-      auto should_explode() const{
+      auto should_explode() const -> bool{
          return m_velocity[1] > 0;
       }
 
-      using rocket::rocket;
+      static constexpr double big_trail_spread = 0.5;
+      static constexpr double big_mass = 50.0;
+      static constexpr s9w::hsluv_d big_range0{ 50.0, 100.0, 70.0 };
+      static constexpr s9w::hsluv_d big_range1{ 70.0, 100.0, 100.0 };
+      big_rocket(const s9w::dvec2& pos, const s9w::dvec2& velocity)
+         : rocket{ pos, velocity, big_trail_spread, big_mass, big_range0, big_range1 }
+      {}
    };
 
    struct small_rocket : rocket{
       double m_age = 0.0;
 
-      using rocket::rocket;
+      static constexpr double small_trail_spread = 1.0;
+      static constexpr double small_mass = 1.0;
+      small_rocket(const s9w::dvec2& pos, const s9w::dvec2& velocity, const s9w::hsluv_d& range0, const s9w::hsluv_d& range1)
+         : rocket{ pos, velocity, small_trail_spread, small_mass, range0, range1 }
+      {}
    };
 
 
@@ -74,11 +74,11 @@ namespace{
       const s9w::hsluv_d& range1
    ) -> s9w::hsluv_d
    {
-      const double hue = rng.get_real(range0.h, range1.h);
-      const double saturation = rng.get_real(range0.s, range1.s);
-      const double lightness = rng.get_real(range0.l, range1.l);
-      s9w::hsluv_d hsluv_color{ hue, saturation, lightness };
-      return hsluv_color;
+      return s9w::hsluv_d{
+         .h = rng.get_real(range0.h, range1.h),
+         .s = rng.get_real(range0.s, range1.s),
+         .l = rng.get_real(range0.l, range1.l)
+      };
    }
 
    auto get_explosion_rockets(const rocket& r, const int n) -> std::vector<small_rocket>
@@ -91,15 +91,13 @@ namespace{
 
       for (int i = 0; i < n; ++i) {
          const double angle = rng.get_real(0.0, two_pi);
-         const double launch_speed = rng.get_real(20.0, 150.0);
+         const double launch_speed = rng.get_real(5.0, 150.0);
          const auto velocity = s9w::rotate(s9w::dvec2{ launch_speed, 0.0 }, angle);
 
-         result.push_back(
-            small_rocket(
-               r.m_pos, velocity, 1.0, 1.0,
-               s9w::hsluv_d{hue0, 100.0, 50.0},
-               s9w::hsluv_d{hue1, 100.0, 50.0}
-            )
+         result.emplace_back(
+            r.m_pos, velocity,
+            s9w::hsluv_d{hue0, 100.0, 50.0},
+            s9w::hsluv_d{hue1, 100.0, 50.0}
          );
       }
       return result;
@@ -113,6 +111,7 @@ namespace{
       std::vector<particle>& glitter
    ) -> void
    {
+      // Intensity is used to "fade out" small rockets. They emit fewer particles over time
       double intensity = 1.0;
       if constexpr (std::same_as<T, small_rocket>)
          intensity = std::clamp(1.0 - r.m_age/3.0, 0.0, 1.0);
@@ -135,13 +134,34 @@ namespace{
       );
    }
 
+   auto get_new_big_rocket(const pixel_screen& canvas) -> big_rocket
+   {
+      const double x = rng.get_real(10.0, canvas.get_width() - 10.0);
+      const double y = canvas.get_height();
+
+      constexpr double min_rocket_speed = 20.0;
+      constexpr double max_rocket_speed = 55.0;
+      const double vx = rng.get_real(-5.0, 5.0);
+      const double vy = rng.get_real(-max_rocket_speed, -min_rocket_speed);
+      return big_rocket(s9w::dvec2{ x, y }, s9w::dvec2{ vx, vy });
+   }
+
+   auto get_screen_cell_dimensions() -> s9w::ivec2 {
+      CONSOLE_SCREEN_BUFFER_INFO csbi;
+      GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+      return s9w::ivec2{
+         csbi.srWindow.Right - csbi.srWindow.Left + 1,
+         csbi.srWindow.Bottom - csbi.srWindow.Top + 1
+      };
+   }
+
 } // namespace {}
 
 auto fireworks_demo() -> void
 {
-   constexpr double gravity = 10.0;
-
-   pixel_screen canvas(140, 80, 0, 0, color{});
+   const auto dim = get_screen_cell_dimensions();
+   constexpr double gravity = 20.0;
+   pixel_screen canvas(dim[0], 2 * dim[1], 0, 0, color{});
    timer timer;
 
    std::vector<small_rocket> small_rockets;
@@ -152,39 +172,28 @@ auto fireworks_demo() -> void
    {
       const double dt = timer.get_dt();
 
-      // Clear
-      for (color& c : canvas)
-         c = color{};
-
       // Spawn new rockets
       time_to_next_rocket -= dt;
       if(time_to_next_rocket < 0)
       {
-         big_rockets.push_back(
-            big_rocket(
-               s9w::dvec2{rng.get_real(10.0, canvas.get_width() - 10.0), canvas.get_height()},
-               s9w::dvec2{rng.get_real(-5.0, 5.0), rng.get_real(-40.0, -20.0)},
-               0.5,
-               50.0,
-               s9w::hsluv_d{ 50.0, 100.0, 70.0 },
-               s9w::hsluv_d{ 70.0, 100.0, 100.0 }
-            )
-         );
-         time_to_next_rocket = rng.get_real(1.0, 5.0);
+         big_rockets.push_back(get_new_big_rocket(canvas));
+         time_to_next_rocket = rng.get_real(1.0, 3.0);
       }
 
       // Gravity
       for (rocket& r : big_rockets)
-         r.m_velocity += s9w::dvec2{ 0.0, gravity } *dt;
+         r.m_velocity += s9w::dvec2{ 0.0, gravity } * dt;
       for (rocket& r : small_rockets)
-         r.m_velocity += s9w::dvec2{ 0.0, gravity } *dt;
+         r.m_velocity += s9w::dvec2{ 0.0, gravity } * dt;
 
       // Drag only for small rockets
       for (rocket& r : small_rockets){
          constexpr double drag_constant = 0.1;
          const double v = s9w::get_length(r.m_velocity);
+         // drag ~ v²
          const s9w::dvec2 F_drag = v * v * dt * drag_constant * s9w::get_normalized(r.m_velocity);
-         const s9w::dvec2 speed_change = F_drag / r.m_mass;
+
+         const s9w::dvec2 speed_change = F_drag / r.m_mass; // F=m*a <=> a=F/m
          r.m_velocity -= speed_change;
       }
 
@@ -200,7 +209,7 @@ auto fireworks_demo() -> void
          for (const big_rocket& r : big_rockets){
             if (r.should_explode() == false)
                continue;
-            append_moved(new_rockets, get_explosion_rockets(r, 20));
+            append_moved(new_rockets, get_explosion_rockets(r, 30));
          }
          append_moved(small_rockets, std::move(new_rockets));
       }
@@ -211,9 +220,11 @@ auto fireworks_demo() -> void
          [](const big_rocket& r) {return r.should_explode(); }
       );
 
-      // Age rockets
+      // Age things
       for (small_rocket& r : small_rockets)
          r.m_age += dt;
+      for (particle& part : glitter)
+         part.m_age += dt;
 
       // Make Glitter
       for (const small_rocket& r : small_rockets)
@@ -237,10 +248,12 @@ auto fireworks_demo() -> void
          }
       );
 
-      // Draw glitter
-      for(particle& part : glitter){
-         part.m_age += dt;
+      // Clear canvas
+      for (color& c : canvas)
+         c = color{};
 
+      // Draw
+      for(particle& part : glitter){
          s9w::srgb_u glitter_color;
          if (part.m_age < 0.2) {
             const double whiteness = std::clamp(1.0 - 5.0*part.m_age, 0.0, 1.0);
@@ -256,13 +269,11 @@ auto fireworks_demo() -> void
          canvas.get_color(part.m_column, part.m_row) = std::bit_cast<color>(glitter_color);
       }
 
+      // Printing, timing + FPS
       timer.mark_frame();
       fast_print(canvas.get_string(color{ 0, 0, 0 }));
-
       const auto fps = timer.get_fps();
       if (fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));
    }
 }
-
-// TODO fadeout
