@@ -2,9 +2,9 @@
 
 #include <numbers>
 
+#include "tools.h"
 #include "../wrapper.h"
 using namespace cvtsw;
-#include "tools.h"
 
 #include <s9w/s9w_geom_types.h>
 #include <s9w/s9w_geom_alg.h>
@@ -18,18 +18,36 @@ namespace{
    struct rocket{
       s9w::dvec2 m_pos;
       s9w::dvec2 m_velocity;
-      bool m_can_explode = false;
       double m_trail_spread = 0.5;
       double m_mass = 50.0;
-      s9w::hsluv_d m_color_range0{50.0, 100.0, 70.0};
-      s9w::hsluv_d m_color_range1{70.0, 100.0, 100.0};
+      s9w::hsluv_d m_color_range0{ 50.0, 100.0, 70.0 };
+      s9w::hsluv_d m_color_range1{ 70.0, 100.0, 100.0 };
       
-
-      auto should_explode() const
-      {
-         return m_can_explode && m_velocity[1] > 0;
-      }
+      rocket(const s9w::dvec2& pos, const s9w::dvec2& velocity, const double trail_spread, const double mass, const s9w::hsluv_d& color_range0, const s9w::hsluv_d& color_range1)
+         : m_pos(pos)
+         , m_velocity(velocity)
+         , m_trail_spread(trail_spread)
+         , m_mass(mass)
+         , m_color_range0(color_range0)
+         , m_color_range1(color_range1)
+      {}
+      
    };
+
+   struct big_rocket : rocket{
+      auto should_explode() const{
+         return m_velocity[1] > 0;
+      }
+
+      using rocket::rocket;
+   };
+
+   struct small_rocket : rocket{
+      double m_age = 0.0;
+
+      using rocket::rocket;
+   };
+
 
    struct particle{
       int m_column;
@@ -63,9 +81,9 @@ namespace{
       return hsluv_color;
    }
 
-   auto get_explosion_rockets(const rocket& r, const int n) -> std::vector<rocket>
+   auto get_explosion_rockets(const rocket& r, const int n) -> std::vector<small_rocket>
    {
-      std::vector<rocket> result;
+      std::vector<small_rocket> result;
       result.reserve(n);
 
       const double hue0 = rng.get_real(0.0, 330.0);
@@ -73,21 +91,48 @@ namespace{
 
       for (int i = 0; i < n; ++i) {
          const double angle = rng.get_real(0.0, two_pi);
-         const double launch_speed = rng.get_real(20.0, 80.0);
+         const double launch_speed = rng.get_real(20.0, 150.0);
          const auto velocity = s9w::rotate(s9w::dvec2{ launch_speed, 0.0 }, angle);
 
          result.push_back(
-            rocket{
-               .m_pos = r.m_pos,
-               .m_velocity = velocity,
-               .m_can_explode = false,
-               .m_trail_spread = 1.5,
-               .m_color_range0{hue0, 100.0, 50.0},
-               .m_color_range1{hue1, 100.0, 50.0}
-            }
+            small_rocket(
+               r.m_pos, velocity, 1.0, 1.0,
+               s9w::hsluv_d{hue0, 100.0, 50.0},
+               s9w::hsluv_d{hue1, 100.0, 50.0}
+            )
          );
       }
       return result;
+   }
+
+   template<typename T>
+   auto make_glitter(
+      const double dt,
+      const pixel_screen& canvas,
+      const T& r,
+      std::vector<particle>& glitter
+   ) -> void
+   {
+      double intensity = 1.0;
+      if constexpr (std::same_as<T, small_rocket>)
+         intensity = std::clamp(1.0 - r.m_age/3.0, 0.0, 1.0);
+
+      constexpr double glitter_per_sec = 50.0;
+      if (rng.get_flip(0.5 * glitter_per_sec * intensity * dt) == false)
+         return;
+
+      const s9w::dvec2 glitter_pos = get_noised_pos(r.m_pos, r.m_trail_spread);
+      const auto& [column, row] = get_column_row(glitter_pos);
+      if (column<0 || column > canvas.get_width() - 1 || row<0 || row>canvas.get_height() - 1)
+         return;
+      glitter.push_back(
+         particle{
+            .m_column = column,
+            .m_row = row,
+            .m_age = 0,
+            .m_color = get_glitter_color(r.m_color_range0, r.m_color_range1)
+         }
+      );
    }
 
 } // namespace {}
@@ -96,10 +141,11 @@ auto fireworks_demo() -> void
 {
    constexpr double gravity = 10.0;
 
-   pixel_screen canvas(120, 80, 0, 0, color{});
+   pixel_screen canvas(140, 80, 0, 0, color{});
    timer timer;
 
-   std::vector<rocket> rockets;
+   std::vector<small_rocket> small_rockets;
+   std::vector<big_rocket> big_rockets;
    std::vector<particle> glitter;
    double time_to_next_rocket = 0.0;
    while(true)
@@ -114,23 +160,28 @@ auto fireworks_demo() -> void
       time_to_next_rocket -= dt;
       if(time_to_next_rocket < 0)
       {
-         rockets.push_back(
-            rocket{
-               .m_pos{rng.get_real(10.0, canvas.get_width() - 10.0), canvas.get_height()},
-               .m_velocity{rng.get_real(-5.0, 5.0), rng.get_real(-100.0, -50.0)},
-               .m_can_explode = true
-            }
+         big_rockets.push_back(
+            big_rocket(
+               s9w::dvec2{rng.get_real(10.0, canvas.get_width() - 10.0), canvas.get_height()},
+               s9w::dvec2{rng.get_real(-5.0, 5.0), rng.get_real(-40.0, -20.0)},
+               0.5,
+               50.0,
+               s9w::hsluv_d{ 50.0, 100.0, 70.0 },
+               s9w::hsluv_d{ 70.0, 100.0, 100.0 }
+            )
          );
          time_to_next_rocket = rng.get_real(1.0, 5.0);
       }
 
-      // Forces
-      for (rocket& r : rockets){
-         // Gravity
-         r.m_velocity += s9w::dvec2{0.0, gravity } * dt;
+      // Gravity
+      for (rocket& r : big_rockets)
+         r.m_velocity += s9w::dvec2{ 0.0, gravity } *dt;
+      for (rocket& r : small_rockets)
+         r.m_velocity += s9w::dvec2{ 0.0, gravity } *dt;
 
-         // Drag
-         constexpr double drag_constant = 2.0;
+      // Drag only for small rockets
+      for (rocket& r : small_rockets){
+         constexpr double drag_constant = 0.1;
          const double v = s9w::get_length(r.m_velocity);
          const s9w::dvec2 F_drag = v * v * dt * drag_constant * s9w::get_normalized(r.m_velocity);
          const s9w::dvec2 speed_change = F_drag / r.m_mass;
@@ -138,55 +189,45 @@ auto fireworks_demo() -> void
       }
 
       // Velocity iteration
-      for (rocket& r : rockets)
+      for (rocket& r : big_rockets)
+         r.m_pos += r.m_velocity * dt;
+      for (rocket& r : small_rockets)
          r.m_pos += r.m_velocity * dt;
 
       // Explode rockets
       {
-         std::vector<rocket> new_rockets;
-         for (const rocket& r : rockets){
+         std::vector<small_rocket> new_rockets;
+         for (const big_rocket& r : big_rockets){
             if (r.should_explode() == false)
                continue;
-            append_moved(rockets, get_explosion_rockets(r, 15));
+            append_moved(new_rockets, get_explosion_rockets(r, 20));
          }
-         append_moved(rockets, std::move(new_rockets));
+         append_moved(small_rockets, std::move(new_rockets));
       }
 
       // Remove (exploded) rockets
       remove_from_vector(
-         rockets,
-         [](const rocket& r) {
-            return r.m_can_explode && r.should_explode();
-         }
+         big_rockets,
+         [](const big_rocket& r) {return r.should_explode(); }
       );
 
-      // Remove out of screen rockets
-      remove_from_vector(
-         rockets,
-         [&](const rocket& r) {
-            return r.m_pos[0] < 0.0 || r.m_pos[0] > canvas.get_width() || r.m_pos[1] < 0.0 || r.m_pos[1] > canvas.get_height();
-         }
-      );
+      // Age rockets
+      for (small_rocket& r : small_rockets)
+         r.m_age += dt;
 
       // Make Glitter
-      for (const rocket& r : rockets){
-         constexpr double glitter_per_sec = 50.0;
-         if(rng.get_flip(0.5 * glitter_per_sec * dt) == false)
-            continue;
+      for (const small_rocket& r : small_rockets)
+         make_glitter(dt, canvas, r, glitter);
+      for (const big_rocket& r : big_rockets)
+         make_glitter(dt, canvas, r, glitter);
 
-         const s9w::dvec2 glitter_pos = get_noised_pos(r.m_pos, r.m_trail_spread);
-         const auto& [column, row] = get_column_row(glitter_pos);
-         if(column<0 ||column > canvas.get_width()-1 || row<0 || row>canvas.get_height()-1)
-            continue;
-         glitter.push_back(
-            particle{
-               .m_column = column,
-               .m_row = row,
-               .m_age = 0,
-               .m_color = get_glitter_color(r.m_color_range0, r.m_color_range1)
-            }
-         );
-      }
+      // Remove glowed out small rockets
+      remove_from_vector(
+         small_rockets,
+         [&](const small_rocket& r) {
+            return r.m_age > 3.0;
+         }
+      );
 
       // Cleanup glitter
       remove_from_vector(
@@ -199,12 +240,21 @@ auto fireworks_demo() -> void
       // Draw glitter
       for(particle& part : glitter){
          part.m_age += dt;
-         const double intensity_factor = std::clamp(1.0 - part.m_age, 0.0, 1.0);
-         s9w::hsluv_d faded_color = part.m_color;
-         faded_color.l *= intensity_factor;
-         canvas.get_color(part.m_column, part.m_row) = std::bit_cast<color>(s9w::convert_color<s9w::srgb_u>(faded_color));
-      }
 
+         s9w::srgb_u glitter_color;
+         if (part.m_age < 0.2) {
+            const double whiteness = std::clamp(1.0 - 5.0*part.m_age, 0.0, 1.0);
+            constexpr s9w::srgb_u srgb_white{ 255, 255, 255 };
+            glitter_color = s9w::mix(s9w::convert_color<s9w::srgb_u>(part.m_color), srgb_white, whiteness);
+         }
+         else {
+            const double intensity_factor = std::clamp(1.0 - part.m_age, 0.0, 1.0);
+            s9w::hsluv_d faded_color = part.m_color;
+            faded_color.l *= intensity_factor;
+            glitter_color = s9w::convert_color<s9w::srgb_u>(faded_color);
+         }
+         canvas.get_color(part.m_column, part.m_row) = std::bit_cast<color>(glitter_color);
+      }
 
       timer.mark_frame();
       fast_print(canvas.get_string(color{ 0, 0, 0 }));
@@ -215,4 +265,4 @@ auto fireworks_demo() -> void
    }
 }
 
-// TODO atmo drag; fadeout 
+// TODO fadeout
