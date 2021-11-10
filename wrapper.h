@@ -17,11 +17,9 @@ namespace cvtsw
    template<typename T>
    concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
 
-   // Feel free to bit_cast, reinterpret_cast or memcopy your 3-byte color type into this.
+   // Feel free to bit_cast, reinterpret_cast or memcpy your 3-byte color type into this.
    struct color {
-      uint8_t red = 0ui8;
-      uint8_t green = 0ui8;
-      uint8_t blue = 0ui8;
+      uint8_t red{}, green{}, blue{};
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
 
@@ -166,6 +164,7 @@ struct reset_sequence;
    struct pixel_screen {
    public:
       std::vector<color> m_pixels;
+      color m_fill_color;
 
    private:
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
@@ -185,7 +184,7 @@ struct reset_sequence;
       [[nodiscard]] auto end()   const { return std::end(m_pixels); }
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
-      [[nodiscard]] auto get_string(const color& frame_color) const -> std::wstring;
+      [[nodiscard]] auto get_string() const -> std::wstring;
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
 
@@ -853,6 +852,7 @@ cvtsw::pixel_screen::pixel_screen(
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
    , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, L'▀')
+   , m_fill_color(fill_color)
 {
 
 }
@@ -864,7 +864,7 @@ auto cvtsw::pixel_screen::get_screen_ref() -> screen<std::wstring>&
 }
 
 
-auto cvtsw::pixel_screen::get_string(const color& frame_color) const -> std::wstring
+auto cvtsw::pixel_screen::get_string() const -> std::wstring
 {
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
@@ -872,8 +872,8 @@ auto cvtsw::pixel_screen::get_string(const color& frame_color) const -> std::wst
    for (int line = 0; line < m_screen.get_height(); ++line) {
       for (int column = 0; column < m_screen.get_width(); ++column) {
          cell<std::wstring>& target_cell = m_screen.get(column, line);
-         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : frame_color;
-         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : frame_color;
+         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : m_fill_color;
+         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : m_fill_color;
       }
       halfline_top += 2;
       halfline_bottom += 2;
@@ -933,7 +933,7 @@ auto cvtsw::pixel_screen::get_height() const -> int
 
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::draw_state<string_type>::write_sequence(
-   std::vector<sequence_variant_type>& m_target_sequences,
+   std::vector<sequence_variant_type>& sequence_buffer,
    const cell_type& target_cell_state,
    const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
    const cell_pos& target_pos,
@@ -946,25 +946,25 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
       return;
 
    if (m_format.has_value() == false) {
-      m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
-      m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
-      m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
-      m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+      sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
+      sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+      sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+      sequence_buffer.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
    }
    else {
       // Apply differences between console state and the target state
       if (target_cell_state.m_format.fg_color != m_format->fg_color)
-         m_target_sequences.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
+         sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
       if (target_cell_state.m_format.bg_color != m_format->bg_color)
-         m_target_sequences.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+         sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
       if (target_cell_state.m_format.m_underline != m_format->m_underline)
-         m_target_sequences.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+         sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
       if (target_cell_state.m_format.m_bold != m_format->m_bold)
-         m_target_sequences.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+         sequence_buffer.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
    }
 
    if (this->is_position_sequence_necessary(target_pos)) {
-      m_target_sequences.push_back(
+      sequence_buffer.push_back(
          position_sequence{
             .m_line = static_cast<uint8_t>(target_pos.get_line() + origin_line),
             .m_column = static_cast<uint8_t>(target_pos.get_column() + origin_column)
@@ -972,7 +972,7 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
       );
    }
 
-   m_target_sequences.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
+   sequence_buffer.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
 
    m_last_written_pos = target_pos;
    m_format = target_cell_state.m_format;

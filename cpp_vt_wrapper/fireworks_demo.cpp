@@ -190,11 +190,9 @@ auto fireworks_demo() -> void
       for (rocket& r : small_rockets){
          constexpr double drag_constant = 0.1;
          const double v = s9w::get_length(r.m_velocity);
-         // drag ~ v²
-         const s9w::dvec2 F_drag = v * v * dt * drag_constant * s9w::get_normalized(r.m_velocity);
-
-         const s9w::dvec2 speed_change = F_drag / r.m_mass; // F=m*a <=> a=F/m
-         r.m_velocity -= speed_change;
+         const double F_drag = v * v * dt * drag_constant; // drag ~ v²
+         const double speed_change = F_drag / r.m_mass; // F=m*a <=> a=F/m
+         r.m_velocity -= s9w::get_normalized(r.m_velocity) * speed_change;
       }
 
       // Velocity iteration
@@ -204,21 +202,14 @@ auto fireworks_demo() -> void
          r.m_pos += r.m_velocity * dt;
 
       // Explode rockets
-      {
-         std::vector<small_rocket> new_rockets;
-         for (const big_rocket& r : big_rockets){
-            if (r.should_explode() == false)
-               continue;
-            append_moved(new_rockets, get_explosion_rockets(r, 30));
+      for(auto it = std::cbegin(big_rockets); it != std::cend(big_rockets); ){
+         if (it->should_explode()) {
+            append_moved(small_rockets, get_explosion_rockets(*it, 30));
+            it = big_rockets.erase(it);
          }
-         append_moved(small_rockets, std::move(new_rockets));
+         else
+            ++it;
       }
-
-      // Remove (exploded) rockets
-      remove_from_vector(
-         big_rockets,
-         [](const big_rocket& r) {return r.should_explode(); }
-      );
 
       // Age things
       for (small_rocket& r : small_rockets)
@@ -235,17 +226,13 @@ auto fireworks_demo() -> void
       // Remove glowed out small rockets
       remove_from_vector(
          small_rockets,
-         [&](const small_rocket& r) {
-            return r.m_age > 3.0;
-         }
+         [&](const small_rocket& r) { return r.m_age > 3.0; }
       );
 
       // Cleanup glitter
       remove_from_vector(
          glitter,
-         [](const particle& part){
-            return part.m_age > 1.0;
-         }
+         [](const particle& part){ return part.m_age > 1.0; }
       );
 
       // Clear canvas
@@ -271,7 +258,7 @@ auto fireworks_demo() -> void
 
       // Printing, timing + FPS
       timer.mark_frame();
-      fast_print(canvas.get_string(color{ 0, 0, 0 }));
+      fast_print(canvas.get_string());
       const auto fps = timer.get_fps();
       if (fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));

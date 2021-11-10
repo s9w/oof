@@ -53,7 +53,7 @@ auto color_dot_demo() -> void
          rng.choice(px.m_pixels) = get_random_color();
 
       timer.mark_frame();
-      fast_print(px.get_string(color{ 0, 255, 0 }));
+      fast_print(px.get_string());
       const auto fps = timer.get_fps();
       if (fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));

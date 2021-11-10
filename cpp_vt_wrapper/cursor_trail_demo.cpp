@@ -149,7 +149,7 @@ auto cursor_trail_demo() -> void
 
       // Timing things; FPS; change of color
       timer.mark_frame();
-      fast_print(canvas.get_string(color{ 0, 0, 0 }));
+      fast_print(canvas.get_string());
 
       const auto fps = timer.get_fps();
       if (fps.has_value())

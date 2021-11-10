@@ -148,6 +148,6 @@ auto snow_demo() -> void
       );
 
       timer.mark_frame();
-       fast_print(px.get_string(color{ 0, 255, 0 }));
+       fast_print(px.get_string());
    }
 }
