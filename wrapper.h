@@ -25,21 +25,21 @@ namespace cvtsw
       friend constexpr auto operator<=>(const color&, const color&) = default;
    };
 
-   struct fg_rgb_color_sequence { color m_color; };
-   struct fg_index_color_sequence { int m_index; };
-   struct set_index_color_sequence { int m_index{}; color m_color; };
-   struct bg_rgb_color_sequence { color m_color; };
-   struct bg_index_color_sequence { int m_index; };
-   struct underline_sequence { bool m_underline; };
-   struct bold_sequence { bool m_bold; };
-   struct position_sequence { uint8_t m_line; uint8_t m_column; };
-   struct move_left_sequence { uint8_t m_amount; };
-   struct move_right_sequence { uint8_t m_amount; };
-   struct move_up_sequence { uint8_t m_amount; };
-   struct move_down_sequence { uint8_t m_amount; };
-   struct char_sequence { char m_letter; };
-   struct wchar_sequence { wchar_t m_letter; };
-   struct reset_sequence { };
+struct fg_rgb_color_sequence;
+struct fg_index_color_sequence;
+struct set_index_color_sequence;
+struct bg_rgb_color_sequence;
+struct bg_index_color_sequence;
+struct underline_sequence;
+struct bold_sequence;
+struct position_sequence;
+struct move_left_sequence;
+struct move_right_sequence;
+struct move_up_sequence;
+struct move_down_sequence;
+struct char_sequence;
+struct wchar_sequence;
+struct reset_sequence;
 
    template<std_string_type string_type>
    using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
@@ -95,12 +95,6 @@ namespace cvtsw
 
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
-
-   template<cvtsw::sequence_c sequence_type>
-   [[nodiscard]] auto get_string(const sequence_type& sequence) -> std::string;
-
-   template<cvtsw::sequence_c sequence_type>
-   [[nodiscard]] auto get_wstring(const sequence_type& sequence) -> std::wstring;
 
    template<cvtsw::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
@@ -206,6 +200,83 @@ namespace cvtsw
       [[nodiscard]] auto get_line_height() const -> int;
    };
 
+   struct fg_rgb_color_sequence {
+      color m_color;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct fg_index_color_sequence {
+      int m_index;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct set_index_color_sequence {
+      int m_index{};
+      color m_color;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct bg_rgb_color_sequence {
+      color m_color;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct bg_index_color_sequence {
+      int m_index;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct underline_sequence {
+      bool m_underline;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct bold_sequence {
+      bool m_bold;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct position_sequence {
+      uint8_t m_line;
+      uint8_t m_column;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct move_left_sequence {
+      uint8_t m_amount;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct move_right_sequence {
+      uint8_t m_amount;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct move_up_sequence {
+      uint8_t m_amount;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct move_down_sequence {
+      uint8_t m_amount;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct char_sequence {
+      char m_letter;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct wchar_sequence {
+      wchar_t m_letter;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct reset_sequence {
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+
    namespace detail
    {
       template<cvtsw::sequence_c sequence_type>
@@ -283,6 +354,8 @@ namespace cvtsw
    } // namespace cvtsw::detail
 
 } // namespace cvtsw
+
+
 
 
 // Constexpr, therefore defined here
@@ -364,54 +437,6 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 
 
 #ifdef CM_IMPL
-
-template<cvtsw::sequence_c sequence_type>
-auto cvtsw::get_string(const sequence_type& sequence) -> std::string
-{
-   std::string result;
-   write_sequence_into_string(result, sequence);
-   return result;
-}
-template auto cvtsw::get_string(const fg_rgb_color_sequence&   ) -> std::string;
-template auto cvtsw::get_string(const fg_index_color_sequence& ) -> std::string;
-template auto cvtsw::get_string(const set_index_color_sequence&) -> std::string;
-template auto cvtsw::get_string(const bg_rgb_color_sequence&   ) -> std::string;
-template auto cvtsw::get_string(const bg_index_color_sequence& ) -> std::string;
-template auto cvtsw::get_string(const underline_sequence&      ) -> std::string;
-template auto cvtsw::get_string(const bold_sequence&           ) -> std::string;
-template auto cvtsw::get_string(const position_sequence&       ) -> std::string;
-template auto cvtsw::get_string(const move_left_sequence&      ) -> std::string;
-template auto cvtsw::get_string(const move_right_sequence&     ) -> std::string;
-template auto cvtsw::get_string(const move_up_sequence&        ) -> std::string;
-template auto cvtsw::get_string(const move_down_sequence&      ) -> std::string;
-template auto cvtsw::get_string(const char_sequence&           ) -> std::string;
-template auto cvtsw::get_string(const wchar_sequence&          ) -> std::string;
-template auto cvtsw::get_string(const reset_sequence&          ) -> std::string;
-
-
-template<cvtsw::sequence_c sequence_type>
-auto cvtsw::get_wstring(const sequence_type& sequence) -> std::wstring
-{
-   std::wstring result;
-   write_sequence_into_string(result, sequence);
-   return result;
-}
-template auto cvtsw::get_wstring(const fg_rgb_color_sequence&   ) -> std::wstring;
-template auto cvtsw::get_wstring(const fg_index_color_sequence& ) -> std::wstring;
-template auto cvtsw::get_wstring(const set_index_color_sequence&) -> std::wstring;
-template auto cvtsw::get_wstring(const bg_rgb_color_sequence&   ) -> std::wstring;
-template auto cvtsw::get_wstring(const bg_index_color_sequence& ) -> std::wstring;
-template auto cvtsw::get_wstring(const underline_sequence&      ) -> std::wstring;
-template auto cvtsw::get_wstring(const bold_sequence&           ) -> std::wstring;
-template auto cvtsw::get_wstring(const position_sequence&       ) -> std::wstring;
-template auto cvtsw::get_wstring(const move_left_sequence&      ) -> std::wstring;
-template auto cvtsw::get_wstring(const move_right_sequence&     ) -> std::wstring;
-template auto cvtsw::get_wstring(const move_up_sequence&        ) -> std::wstring;
-template auto cvtsw::get_wstring(const move_down_sequence&      ) -> std::wstring;
-template auto cvtsw::get_wstring(const char_sequence&           ) -> std::wstring;
-template auto cvtsw::get_wstring(const wchar_sequence&          ) -> std::wstring;
-template auto cvtsw::get_wstring(const reset_sequence&          ) -> std::wstring;
-
 
 // Instantiated by write_ints_into_string()
 template<cvtsw::std_string_type string_type, std::integral int_type>
@@ -977,6 +1002,217 @@ auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
 
    return false;
 }
-// draw_state is instantiated by screen::get_sequences()
+
+
+cvtsw::fg_rgb_color_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::fg_index_color_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::set_index_color_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bg_rgb_color_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bg_index_color_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::underline_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bold_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::position_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_left_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_right_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_up_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_down_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::char_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::wchar_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::reset_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::fg_rgb_color_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::fg_index_color_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::set_index_color_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bg_rgb_color_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bg_index_color_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::underline_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::bold_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::position_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_left_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_right_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_up_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::move_down_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::char_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::wchar_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::reset_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
 
 #endif
