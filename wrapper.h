@@ -38,6 +38,7 @@ struct move_down_sequence;
 struct char_sequence;
 struct wchar_sequence;
 struct reset_sequence;
+struct clear_screen_sequence;
 
    template<std_string_type string_type>
    using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
@@ -57,7 +58,7 @@ struct reset_sequence;
 
    using sequence_variant_type = std::variant<
       fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, set_index_color_sequence,
-      underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence,
+      underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence,
       move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence
    >;
 
@@ -79,6 +80,7 @@ struct reset_sequence;
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
    [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
    [[nodiscard]] auto reset_formatting() -> reset_sequence;
+   [[nodiscard]] auto clear_screen() -> clear_screen_sequence;
 
    [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
    [[nodiscard]] auto move_left(const int amount) -> move_left_sequence;
@@ -275,6 +277,10 @@ struct reset_sequence;
       operator std::string() const;
       operator std::wstring() const;
    };
+   struct clear_screen_sequence {
+      operator std::string() const;
+      operator std::wstring() const;
+   };
 
    namespace detail
    {
@@ -396,7 +402,7 @@ template<cvtsw::sequence_c sequence_type>
          reserve_size += get_int_param_str_length(sequence.m_column);
       }
       
-      else if constexpr (std::is_same_v<sequence_type, reset_sequence>)
+      else if constexpr (is_any_of<sequence_type, reset_sequence, clear_screen_sequence>)
       {
          reserve_size += 1;
       }
@@ -553,6 +559,11 @@ auto cvtsw::write_sequence_into_string(
       {
          detail::write_ints_into_string(target, 0);
          target += static_cast<char_type>('m');
+      }
+      else if constexpr (std::is_same_v<sequence_type, clear_screen_sequence>)
+      {
+         detail::write_ints_into_string(target, 2);
+         target += static_cast<char_type>('J');
       }
    }
 }
@@ -840,6 +851,11 @@ auto cvtsw::reset_formatting() -> reset_sequence {
 }
 
 
+auto cvtsw::clear_screen() -> clear_screen_sequence {
+   return clear_screen_sequence{};
+}
+
+
 cvtsw::pixel_screen::pixel_screen(
    const int width,
    const int halfline_height,
@@ -1109,6 +1125,13 @@ cvtsw::reset_sequence::operator std::string() const
    return result;
 }
 
+cvtsw::clear_screen_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
 cvtsw::fg_rgb_color_sequence::operator std::wstring() const
 {
    std::wstring result;
@@ -1208,6 +1231,13 @@ cvtsw::wchar_sequence::operator std::wstring() const
 }
 
 cvtsw::reset_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::clear_screen_sequence::operator std::wstring() const
 {
    std::wstring result;
    write_sequence_into_string(result, *this);
