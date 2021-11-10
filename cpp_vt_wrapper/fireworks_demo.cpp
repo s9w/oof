@@ -159,7 +159,7 @@ namespace{
 
 auto fireworks_demo() -> void
 {
-   const auto dim = get_screen_cell_dimensions();
+   s9w::ivec2 dim = get_screen_cell_dimensions();
    constexpr double gravity = 20.0;
    pixel_screen canvas(dim[0], 2 * dim[1], 0, 0, color{});
    timer timer;
@@ -256,11 +256,20 @@ auto fireworks_demo() -> void
          canvas.get_color(part.m_column, part.m_row) = std::bit_cast<color>(glitter_color);
       }
 
-      // Printing, timing + FPS
+      // Printing, timing; FPS; resizing
       timer.mark_frame();
       fast_print(canvas.get_string());
       const auto fps = timer.get_fps();
-      if (fps.has_value())
+      if (fps.has_value()) {
          set_window_title("FPS: " + std::to_string(*fps));
+
+         const s9w::ivec2 new_dim = get_screen_cell_dimensions();
+         if (new_dim != dim) {
+            fast_print(std::string(clear_screen()));
+            canvas = pixel_screen(new_dim[0], 2 * new_dim[1], 0, 0, color{});
+            dim = new_dim;
+            glitter.clear();
+         }
+      }
    }
 }
