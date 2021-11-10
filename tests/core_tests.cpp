@@ -56,6 +56,10 @@ TEST_CASE("get_sequence_string_size")
    CHECK(has_correct_size(wchar_sequence{L'A'}));
    CHECK(has_correct_size(position_sequence{0, 0}));
    CHECK(has_correct_size(position_sequence{11, 112}));
+   CHECK(has_correct_size(hposition_sequence{1}));
+   CHECK(has_correct_size(hposition_sequence{11}));
+   CHECK(has_correct_size(vposition_sequence{ 1 }));
+   CHECK(has_correct_size(vposition_sequence{ 11 }));
    CHECK(has_correct_size(underline_sequence{false}));
    CHECK(has_correct_size(underline_sequence{true}));
    CHECK(has_correct_size(bold_sequence{true}));

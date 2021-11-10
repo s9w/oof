@@ -31,6 +31,8 @@ struct bg_index_color_sequence;
 struct underline_sequence;
 struct bold_sequence;
 struct position_sequence;
+struct hposition_sequence;
+struct vposition_sequence;
 struct move_left_sequence;
 struct move_right_sequence;
 struct move_up_sequence;
@@ -58,7 +60,8 @@ struct clear_screen_sequence;
 
    using sequence_variant_type = std::variant<
       fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, set_index_color_sequence,
-      underline_sequence, bold_sequence, position_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence,
+      position_sequence, hposition_sequence, vposition_sequence,
+      underline_sequence, bold_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence,
       move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence
    >;
 
@@ -68,27 +71,27 @@ struct clear_screen_sequence;
 
    // Generators of sequences
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence;
-   [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
-   [[nodiscard]] auto fg_color(const int index) -> fg_index_color_sequence;
+   [[nodiscard]] auto fg_color(const color& col)                      -> fg_rgb_color_sequence;
+   [[nodiscard]] auto fg_color(const int index)                       -> fg_index_color_sequence;
 
    [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence;
-   [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
-   [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
+   [[nodiscard]] auto bg_color(const color& col)                      -> bg_rgb_color_sequence;
+   [[nodiscard]] auto bg_color(const int index)                       -> bg_index_color_sequence;
 
    [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
    
    [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
-   [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
-   [[nodiscard]] auto reset_formatting() -> reset_sequence;
-   [[nodiscard]] auto clear_screen() -> clear_screen_sequence;
+   [[nodiscard]] auto bold(const bool new_value = true)      -> bold_sequence;
+   [[nodiscard]] auto reset_formatting()                     -> reset_sequence;
+   [[nodiscard]] auto clear_screen()                         -> clear_screen_sequence;
 
    [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
-   [[nodiscard]] auto move_left(const int amount) -> move_left_sequence;
-   [[nodiscard]] auto move_right(const int amount) -> move_right_sequence;
-   [[nodiscard]] auto move_up(const int amount) -> move_up_sequence;
-   [[nodiscard]] auto move_down(const int amount) -> move_down_sequence;
-   //[[nodiscard]] auto vposition(const int line) -> detail::vpos_params;
-   //[[nodiscard]] auto hposition(const int column) -> detail::hpos_params;
+   [[nodiscard]] auto vposition(const int line)                  -> vposition_sequence;
+   [[nodiscard]] auto hposition(const int column)                -> hposition_sequence;
+   [[nodiscard]] auto move_left(const int amount)                -> move_left_sequence;
+   [[nodiscard]] auto move_right(const int amount)               -> move_right_sequence;
+   [[nodiscard]] auto move_up(const int amount)                  -> move_up_sequence;
+   [[nodiscard]] auto move_down(const int amount)                -> move_down_sequence;
 
    template<typename stream_type, cvtsw::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
@@ -240,6 +243,16 @@ struct clear_screen_sequence;
    struct position_sequence {
       uint8_t m_line;
       uint8_t m_column;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct hposition_sequence {
+      uint8_t m_column;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct vposition_sequence {
+      uint8_t m_line;
       operator std::string() const;
       operator std::wstring() const;
    };
@@ -419,7 +432,12 @@ template<cvtsw::sequence_c sequence_type>
          reserve_size += semicolon_size;
          reserve_size += get_int_param_str_length(sequence.m_column);
       }
-      
+      else if constexpr (std::is_same_v<sequence_type, hposition_sequence>) {
+         reserve_size += get_int_param_str_length(sequence.m_column);
+      }
+      else if constexpr (std::is_same_v<sequence_type, vposition_sequence>) {
+         reserve_size += get_int_param_str_length(sequence.m_line);
+      }
       else if constexpr (is_any_of<sequence_type, reset_sequence, clear_screen_sequence>)
       {
          reserve_size += 1;
@@ -552,6 +570,16 @@ auto cvtsw::write_sequence_into_string(
       {
          detail::write_ints_into_string(target, sequence.m_line + 1, sequence.m_column + 1);
          target += static_cast<char_type>('H');
+      }
+      else if constexpr (std::is_same_v<sequence_type, hposition_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_column + 1);
+         target += static_cast<char_type>('G');
+      }
+      else if constexpr (std::is_same_v<sequence_type, vposition_sequence>)
+      {
+         detail::write_ints_into_string(target, sequence.m_line + 1);
+         target += static_cast<char_type>('d');
       }
       else if constexpr (std::is_same_v<sequence_type, move_down_sequence>)
       {
@@ -763,6 +791,16 @@ auto cvtsw::position(const int line, const int column) -> position_sequence {
 }
 
 
+auto cvtsw::vposition(const int line) -> vposition_sequence {
+   return vposition_sequence{ static_cast<uint8_t>(line) };
+}
+
+
+auto cvtsw::hposition(const int column) -> hposition_sequence {
+   return hposition_sequence{ static_cast<uint8_t>(column) };
+}
+
+
 auto cvtsw::move_left(const int amount) -> move_left_sequence
 {
    return move_left_sequence{ static_cast<uint8_t>(amount)};
@@ -785,17 +823,6 @@ auto cvtsw::move_down(const int amount) -> move_down_sequence
 {
    return move_down_sequence{ static_cast<uint8_t>(amount) };
 }
-
-
-//auto cvtsw::vposition(const int line)-> detail::vpos_params{
-//   const int effective_line = line + 1;
-//   return detail::vpos_params{ effective_line };
-//}
-//
-//auto cvtsw::hposition(const int column) -> detail::hpos_params{
-//   const int effective_column = column + 1;
-//   return detail::hpos_params{ effective_column };
-//}
 
 
 auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
@@ -1094,6 +1121,20 @@ cvtsw::position_sequence::operator std::string() const
    return result;
 }
 
+cvtsw::hposition_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::vposition_sequence::operator std::string() const
+{
+   std::string result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
 cvtsw::move_left_sequence::operator std::string() const
 {
    std::string result;
@@ -1200,6 +1241,20 @@ cvtsw::bold_sequence::operator std::wstring() const
 }
 
 cvtsw::position_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::hposition_sequence::operator std::wstring() const
+{
+   std::wstring result;
+   write_sequence_into_string(result, *this);
+   return result;
+}
+
+cvtsw::vposition_sequence::operator std::wstring() const
 {
    std::wstring result;
    write_sequence_into_string(result, *this);
