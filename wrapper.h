@@ -96,6 +96,12 @@ namespace cvtsw
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
 
+   template<cvtsw::sequence_c sequence_type>
+   [[nodiscard]] auto get_string(const sequence_type& sequence) -> std::string;
+
+   template<cvtsw::sequence_c sequence_type>
+   [[nodiscard]] auto get_wstring(const sequence_type& sequence) -> std::wstring;
+
    template<cvtsw::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
@@ -297,7 +303,7 @@ template<cvtsw::sequence_c sequence_type>
    else {
       size_t reserve_size = 0;
       constexpr int semicolon_size = 1;
-      if constexpr (std::is_same_v<sequence_type, fg_rgb_color_sequence> || std::is_same_v<sequence_type, fg_rgb_color_sequence>) {
+      if constexpr (is_any_of<sequence_type, fg_rgb_color_sequence, bg_rgb_color_sequence>) {
          reserve_size += 2 + semicolon_size + 1 +
             semicolon_size + get_int_param_str_length(sequence.m_color.red) +
             semicolon_size + get_int_param_str_length(sequence.m_color.green) +
@@ -358,6 +364,54 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 
 
 #ifdef CM_IMPL
+
+template<cvtsw::sequence_c sequence_type>
+auto cvtsw::get_string(const sequence_type& sequence) -> std::string
+{
+   std::string result;
+   write_sequence_into_string(result, sequence);
+   return result;
+}
+template auto cvtsw::get_string(const fg_rgb_color_sequence&   ) -> std::string;
+template auto cvtsw::get_string(const fg_index_color_sequence& ) -> std::string;
+template auto cvtsw::get_string(const set_index_color_sequence&) -> std::string;
+template auto cvtsw::get_string(const bg_rgb_color_sequence&   ) -> std::string;
+template auto cvtsw::get_string(const bg_index_color_sequence& ) -> std::string;
+template auto cvtsw::get_string(const underline_sequence&      ) -> std::string;
+template auto cvtsw::get_string(const bold_sequence&           ) -> std::string;
+template auto cvtsw::get_string(const position_sequence&       ) -> std::string;
+template auto cvtsw::get_string(const move_left_sequence&      ) -> std::string;
+template auto cvtsw::get_string(const move_right_sequence&     ) -> std::string;
+template auto cvtsw::get_string(const move_up_sequence&        ) -> std::string;
+template auto cvtsw::get_string(const move_down_sequence&      ) -> std::string;
+template auto cvtsw::get_string(const char_sequence&           ) -> std::string;
+template auto cvtsw::get_string(const wchar_sequence&          ) -> std::string;
+template auto cvtsw::get_string(const reset_sequence&          ) -> std::string;
+
+
+template<cvtsw::sequence_c sequence_type>
+auto cvtsw::get_wstring(const sequence_type& sequence) -> std::wstring
+{
+   std::wstring result;
+   write_sequence_into_string(result, sequence);
+   return result;
+}
+template auto cvtsw::get_wstring(const fg_rgb_color_sequence&   ) -> std::wstring;
+template auto cvtsw::get_wstring(const fg_index_color_sequence& ) -> std::wstring;
+template auto cvtsw::get_wstring(const set_index_color_sequence&) -> std::wstring;
+template auto cvtsw::get_wstring(const bg_rgb_color_sequence&   ) -> std::wstring;
+template auto cvtsw::get_wstring(const bg_index_color_sequence& ) -> std::wstring;
+template auto cvtsw::get_wstring(const underline_sequence&      ) -> std::wstring;
+template auto cvtsw::get_wstring(const bold_sequence&           ) -> std::wstring;
+template auto cvtsw::get_wstring(const position_sequence&       ) -> std::wstring;
+template auto cvtsw::get_wstring(const move_left_sequence&      ) -> std::wstring;
+template auto cvtsw::get_wstring(const move_right_sequence&     ) -> std::wstring;
+template auto cvtsw::get_wstring(const move_up_sequence&        ) -> std::wstring;
+template auto cvtsw::get_wstring(const move_down_sequence&      ) -> std::wstring;
+template auto cvtsw::get_wstring(const char_sequence&           ) -> std::wstring;
+template auto cvtsw::get_wstring(const wchar_sequence&          ) -> std::wstring;
+template auto cvtsw::get_wstring(const reset_sequence&          ) -> std::wstring;
+
 
 // Instantiated by write_ints_into_string()
 template<cvtsw::std_string_type string_type, std::integral int_type>
