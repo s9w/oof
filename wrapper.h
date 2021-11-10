@@ -375,8 +375,26 @@ template<cvtsw::sequence_c sequence_type>
       return 3;
    };
 
-   if constexpr (std::is_same_v<sequence_type, char_sequence> || std::is_same_v<sequence_type, wchar_sequence>) {
+   if constexpr (is_any_of<sequence_type, char_sequence, wchar_sequence>) {
       return 1;
+   }
+   else if constexpr (std::is_same_v<sequence_type, set_index_color_sequence>) {
+      size_t reserve_size = 0;
+      reserve_size += 4; // \x1b]4;
+      reserve_size += get_int_param_str_length(sequence.m_index);; // <i>;
+      reserve_size += 4; // ;rgb:
+
+      constexpr auto get_component_str_size = [](const uint8_t component) {
+         return component < 15 ? 2 : 1;
+      };
+      reserve_size += get_component_str_size(sequence.m_color.red);
+      reserve_size += 1; // /
+      reserve_size += get_component_str_size(sequence.m_color.green);
+      reserve_size += 1; // /
+      reserve_size += get_component_str_size(sequence.m_color.blue);
+      reserve_size += 2; // <ST>
+
+      return reserve_size;
    }
    else {
       size_t reserve_size = 0;
