@@ -15,7 +15,7 @@ namespace {
       const double lower = segment_index;
       const double upper = lower + 1.0;
       const double clamped_x = std::clamp(x, lower, upper);
-      return get_int<uint8_t>((clamped_x - lower) * 255.0);
+      return 100ui8 + get_int<uint8_t>((clamped_x - lower) * 155.0);
    }
 
    struct bar_widget{
@@ -25,12 +25,11 @@ namespace {
       double m_progress{};
 
       bar_widget(const std::wstring& description, const int bar_width, const int line)
-         : m_bar_start_column(static_cast<int>(description.size()) + 3)
+         : m_bar_start_column(static_cast<int>(description.size()) + 2)
          , m_bar_width(bar_width)
-         , m_screen(m_bar_start_column + bar_width + 1, 1, 0, line, L'━')
+         , m_screen(m_bar_start_column + bar_width, 1, 0, line, L'━')
       {
-         m_screen.write_into(description+L": [", 0, 0, cell_format{});
-         m_screen.write_into(L"]", m_screen.get_width()-1, 0, cell_format{});
+         m_screen.write_into(description+L": ", 0, 0, cell_format{});
       }
 
       auto set_value(const double value)
