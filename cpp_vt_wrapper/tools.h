@@ -40,6 +40,17 @@ inline auto get_screen_cell_dimensions() -> s9w::ivec2 {
 }
 
 
+// Returns position of console cursor. Zero-based
+inline auto get_cursor_pos_xy() -> s9w::ivec2 {
+   CONSOLE_SCREEN_BUFFER_INFO cbsi;
+   GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cbsi);
+   return s9w::ivec2{
+      cbsi.dwCursorPosition.X,
+      cbsi.dwCursorPosition.Y - 1 // This is correct, this function is weird
+   };
+}
+
+
 // Returns font width and height in pixel
 inline auto get_font_width_height() -> s9w::ivec2 {
    CONSOLE_FONT_INFOEX result;

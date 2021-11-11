@@ -1,57 +1,66 @@
 ﻿#include "bars_demo.h"
 
-#include <s9w/s9w_rng.h>
-
 #include "../wrapper.h"
 using namespace cvtsw;
 #include "tools.h"
 
-#include <iostream>
 
 namespace {
-   auto get_component(
+
+   auto get_color_component(
       const int segment_index,
-      const double bar_width
+      const double x
    ) -> uint8_t
    {
-      if (segment_index < bar_width)
-         return 255ui8;
-      else if (segment_index > std::ceil(bar_width))
-         return 0ui8;
-      else return get_int<uint8_t>(255.0 * std::fmod(bar_width, 1.0));
+      const double lower = segment_index;
+      const double upper = lower + 1.0;
+      const double clamped_x = std::clamp(x, lower, upper);
+      return get_int<uint8_t>((clamped_x - lower) * 255.0);
    }
-}
 
-struct pos {
-   int column;
-   int line;
-};
-auto get_cursor_pos_xy() -> pos
-{
-   CONSOLE_SCREEN_BUFFER_INFO cbsi;
-   GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cbsi);
-   return pos{
-      .column = cbsi.dwCursorPosition.X,
-      .line = cbsi.dwCursorPosition.Y
+   struct bar_widget{
+      int m_bar_start_column{};
+      int m_bar_width{};
+      mutable screen<std::wstring> m_screen;
+      double m_progress{};
+
+      bar_widget(const std::wstring& description, const int bar_width, const int line)
+         : m_bar_start_column(static_cast<int>(description.size()) + 3)
+         , m_bar_width(bar_width)
+         , m_screen(m_bar_start_column + bar_width + 1, 1, 0, line, L'━')
+      {
+         m_screen.write_into(description+L": [", 0, 0, cell_format{});
+         m_screen.write_into(L"]", m_screen.get_width()-1, 0, cell_format{});
+      }
+
+      auto set_value(const double value)
+      {
+         m_progress = value;
+      }
+
+      auto print() const -> void
+      {
+         for (int i = 0; i < m_bar_width; ++i) {
+            const uint8_t component = get_color_component(i, m_progress * m_bar_width);
+            m_screen.get(i+m_bar_start_column, 0).m_format.fg_color = color{ component, component, component };
+         }
+         fast_print(m_screen.get_string());
+      }
    };
 }
 
-auto bars_demo() -> void
-{
-   timer timer;
-   std::cout << "Progress: [";
-   const pos bar_start = get_cursor_pos_xy();
-   screen scr{ 20, 1, bar_start.column, bar_start.line, L'━' };
-   std::cout << move_right(scr.get_width()) << "]";
+
+auto bars_demo() -> void{
+   const timer timer;
+   bar_widget linear(L"Linear", 20, 0);
+   bar_widget sine_wave(L"Sine wave", 20, 1);
    
    while (true) {
-      const double bar_width = std::fmod(10.0 * timer.get_seconds_since_start(), scr.get_width());
-      for (int i = 0; i < scr.get_width(); ++i) {
-         const uint8_t component = get_component(i, bar_width);
-         scr.get(i, 0).m_format.fg_color = color{ component, component, component };
-      }
+      const double t = timer.get_seconds_since_start();
+      linear.set_value(std::fmod(0.1 * t, 1.0));
+      sine_wave.set_value(0.5 + 0.5 * std::sin(t));
 
-      timer.mark_frame();
-      fast_print(scr.get_string());
+      linear.print();
+      sine_wave.print();
    }
 }
