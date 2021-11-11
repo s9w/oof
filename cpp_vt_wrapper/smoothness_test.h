@@ -1,3 +1,3 @@
 #pragma once
 
-auto smoothness_tes() -> void;
+auto smoothness_test() -> void;

@@ -1,34 +1,14 @@
 #include "cursor_trail_demo.h"
 
-#include <s9w/s9w_geom_alg.h>
-
 #include "../wrapper.h"
 using namespace cvtsw;
+
 #include "tools.h"
 
-#include <s9w/s9w_rng.h>
-#include <s9w/s9w_geom_types.h>
-#include <s9w/s9w_colors.h>
 
 namespace {
 
    s9w::rng_state rng;
-
-   auto get_screen_cell_dimensions() -> s9w::ivec2 {
-      CONSOLE_SCREEN_BUFFER_INFO csbi;
-      GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-      return s9w::ivec2{
-         csbi.srWindow.Right - csbi.srWindow.Left + 1,
-         csbi.srWindow.Bottom - csbi.srWindow.Top + 1
-      };
-   }
-
-   auto get_font_width_height() -> s9w::ivec2 {
-      CONSOLE_FONT_INFOEX result;
-      result.cbSize = sizeof(CONSOLE_FONT_INFOEX);
-      GetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), false, &result);
-      return s9w::ivec2{ result.dwFontSize.X, result.dwFontSize.Y };
-   }
 
    // We're drawing "half" lines, so the relevant font size is halved in height
    auto get_halfline_font_pixel_size() -> s9w::ivec2

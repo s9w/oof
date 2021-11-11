@@ -8,7 +8,10 @@ using namespace cvtsw;
 #include <vector>
 #include <chrono>
 
+#include <s9w/s9w_geom_types.h>
+#include <s9w/s9w_geom_alg.h>
 #include <s9w/s9w_rng.h>
+#include <s9w/s9w_colors.h>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -26,6 +29,26 @@ auto fast_print(const std::basic_string<char_type>& sss) -> void {
 }
 
 
+// Returns width and heights in cell count
+inline auto get_screen_cell_dimensions() -> s9w::ivec2 {
+   CONSOLE_SCREEN_BUFFER_INFO csbi;
+   GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+   return s9w::ivec2{
+      csbi.srWindow.Right - csbi.srWindow.Left + 1,
+      csbi.srWindow.Bottom - csbi.srWindow.Top + 1
+   };
+}
+
+
+// Returns font width and height in pixel
+inline auto get_font_width_height() -> s9w::ivec2 {
+   CONSOLE_FONT_INFOEX result;
+   result.cbSize = sizeof(CONSOLE_FONT_INFOEX);
+   GetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), false, &result);
+   return s9w::ivec2{ result.dwFontSize.X, result.dwFontSize.Y };
+}
+
+
 inline auto set_window_title(const std::string& title) -> void {
    SetConsoleTitleA(title.c_str());
 }
@@ -35,6 +58,7 @@ template<typename return_type = int>
 auto get_int(const double in) -> return_type {
    return static_cast<return_type>(std::round(in));
 }
+
 
 template <class T>
 void append_moved(std::vector<T>& dst, std::vector<T>&& src) {

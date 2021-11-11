@@ -3,13 +3,9 @@
 #include <numbers>
 
 #include "tools.h"
+
 #include "../wrapper.h"
 using namespace cvtsw;
-
-#include <s9w/s9w_geom_types.h>
-#include <s9w/s9w_geom_alg.h>
-#include <s9w/s9w_rng.h>
-#include <s9w/s9w_colors.h>
 
 namespace{
    s9w::rng_state rng{1};
@@ -144,15 +140,6 @@ namespace{
       const double vx = rng.get_real(-5.0, 5.0);
       const double vy = rng.get_real(-max_rocket_speed, -min_rocket_speed);
       return big_rocket(s9w::dvec2{ x, y }, s9w::dvec2{ vx, vy });
-   }
-
-   auto get_screen_cell_dimensions() -> s9w::ivec2 {
-      CONSOLE_SCREEN_BUFFER_INFO csbi;
-      GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-      return s9w::ivec2{
-         csbi.srWindow.Right - csbi.srWindow.Left + 1,
-         csbi.srWindow.Bottom - csbi.srWindow.Top + 1
-      };
    }
 
 } // namespace {}
