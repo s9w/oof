@@ -120,11 +120,7 @@ auto text_demo() -> void
    screen scr{ 34, 30, 0, 0, ' ' };
    timer timer;
    while (true) {
-      for(auto& cell : scr)
-      {
-         cell.letter = ' ';
-         cell.m_format = cell_format{};
-      }
+      scr.clear();
       writer.write(scr, timer.get_seconds_since_start());
 
       timer.mark_frame();

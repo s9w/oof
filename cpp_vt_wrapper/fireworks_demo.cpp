@@ -222,11 +222,8 @@ auto fireworks_demo() -> void
          [](const particle& part){ return part.m_age > 1.0; }
       );
 
-      // Clear canvas
-      for (color& c : canvas)
-         c = color{};
-
       // Draw
+      canvas.clear();
       for(particle& part : glitter){
          s9w::srgb_u glitter_color;
          if (part.m_age < 0.2) {

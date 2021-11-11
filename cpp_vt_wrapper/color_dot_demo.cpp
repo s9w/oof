@@ -8,8 +8,6 @@
 using namespace cvtsw;
 #include "tools.h"
 
-#include <tracy/Tracy.hpp>
-
 static s9w::rng_state rng;
 
 namespace{
@@ -42,7 +40,6 @@ auto color_dot_demo() -> void
    timer timer;
    for (uint64_t i = 0; ; ++i) {
       {
-         ZoneScopedN("fading");
          if (i % 10 == 0) {
             for (color& col : px.m_pixels)
                col = get_faded(col);

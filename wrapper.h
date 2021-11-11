@@ -149,11 +149,15 @@ namespace cvtsw
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
+      [[nodiscard]] auto get_background() const -> cell<string_type>;
       
       [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
       auto write_into(const string_type& text, const int column, const int line, const cell_format& formatting) -> void;
+
+      // Override all cells with the background state
+      auto clear() -> void;
 
       [[nodiscard]] auto begin() const { return std::begin(m_cells); }
       [[nodiscard]] auto begin()       { return std::begin(m_cells); }
@@ -176,7 +180,6 @@ namespace cvtsw
    struct pixel_screen {
    public:
       std::vector<color> m_pixels;
-      color m_fill_color; // TODO this is redundant because of screen::m_background?
 
    private:
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
@@ -203,12 +206,16 @@ namespace cvtsw
       // If you want to override something in the screen
       [[nodiscard]] auto get_screen_ref() -> screen<std::wstring>&;
 
+      // Override all pixels with the fill color
+      auto clear() -> void;
+
       [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
       [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
       [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
+      [[nodiscard]] auto get_fill_color() const -> color;
    };
 
    struct fg_rgb_color_sequence {
@@ -936,7 +943,6 @@ cvtsw::pixel_screen::pixel_screen(
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
    , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, detail::get_pixel_background(fill_color))
-   , m_fill_color(fill_color)
 {
 
 }
@@ -956,8 +962,8 @@ auto cvtsw::pixel_screen::get_string() const -> std::wstring
    for (int line = 0; line < m_screen.get_height(); ++line) {
       for (int column = 0; column < m_screen.get_width(); ++column) {
          cell<std::wstring>& target_cell = m_screen.get(column, line);
-         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : m_fill_color;
-         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : m_fill_color;
+         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : get_fill_color();
+         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : get_fill_color();
       }
       halfline_top += 2;
       halfline_bottom += 2;
@@ -1014,6 +1020,30 @@ auto cvtsw::pixel_screen::get_height() const -> int
    return m_halfline_height;
 }
 
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::get_background() const -> cell<string_type>
+{
+   return m_background;
+}
+
+
+auto cvtsw::pixel_screen::get_fill_color() const -> color
+{
+   return m_screen.get_background().m_format.bg_color;
+}
+
+auto cvtsw::pixel_screen::clear() -> void
+{
+   m_screen.clear();
+}
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::clear() -> void
+{
+   for (cell<string_type>& cell : *this)
+      cell = m_background;
+}
 
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::draw_state<string_type>::write_sequence(
