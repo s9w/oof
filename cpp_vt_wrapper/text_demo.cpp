@@ -1,6 +1,5 @@
 #include "text_demo.h"
 
-#include <chrono>
 #include <iostream>
 
 #include "../wrapper.h"

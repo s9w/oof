@@ -129,8 +129,10 @@ namespace cvtsw
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
+      cell<string_type> m_background;
       mutable std::vector<cell<string_type>> m_old_cells;
       mutable std::vector<sequence_variant_type> m_sequence_buffer;
+      
 
    public:
       explicit screen(
@@ -138,6 +140,12 @@ namespace cvtsw
          const int start_column, const int start_line, 
          const char_type fill_char
       );
+      explicit screen(
+         const int width, const int height,
+         const int start_column, const int start_line,
+         const cell<string_type>& background
+      );
+
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
@@ -156,6 +164,7 @@ namespace cvtsw
       [[nodiscard]] auto update_sequence_buffer() const -> void;
    };
 
+
    // Deduction guide
    template<typename char_type>
    screen(const int width, const int height,
@@ -167,7 +176,7 @@ namespace cvtsw
    struct pixel_screen {
    public:
       std::vector<color> m_pixels;
-      color m_fill_color;
+      color m_fill_color; // TODO this is redundant because of screen::m_background?
 
    private:
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
@@ -295,6 +304,9 @@ namespace cvtsw
 
    namespace detail
    {
+
+      [[nodiscard]] auto get_pixel_background(const color& fill_color)->cell<std::wstring>;
+
       template<cvtsw::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
 
@@ -686,11 +698,24 @@ cvtsw::screen<string_type>::screen(
    const int start_column, const int start_line,
    const char_type fill_char
 )
-   : m_cells(width* height, cell<string_type>{fill_char})
-   , m_width(width)
+   : screen(width, height, start_column, start_line, cell<string_type>{fill_char})
+{
+
+}
+
+
+template<cvtsw::std_string_type string_type>
+cvtsw::screen<string_type>::screen(
+   const int width, const int height,
+   const int start_column, const int start_line,
+   const cell<string_type>& background
+)
+   : m_width(width)
    , m_height(height)
    , m_origin_line(start_line)
    , m_origin_column(start_column)
+   , m_background(background)
+   , m_cells(width* height, background)
 {
 
 }
@@ -910,7 +935,7 @@ cvtsw::pixel_screen::pixel_screen(
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
-   , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, L'▀')
+   , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, detail::get_pixel_background(fill_color))
    , m_fill_color(fill_color)
 {
 
@@ -1069,6 +1094,18 @@ auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_ty
    string_type result;
    write_sequence_into_string(result, sequence);
    return result;
+}
+
+
+auto cvtsw::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
+{
+   return cell<std::wstring>{
+      .letter = L'▀',
+      .m_format = {
+         .fg_color = fill_color,
+         .bg_color = fill_color
+      }
+   };
 }
 
 
