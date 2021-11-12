@@ -41,7 +41,7 @@ namespace {
       {
          for (int i = 0; i < m_bar_width; ++i) {
             const uint8_t component = get_color_component(i, m_progress * m_bar_width);
-            m_screen.get(i+m_bar_start_column, 0).m_format.fg_color = color{ component, component, component };
+            m_screen.get_cell(i+m_bar_start_column, 0).m_format.fg_color = color{ component, component, component };
          }
          fast_print(m_screen.get_string());
       }

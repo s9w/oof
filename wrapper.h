@@ -151,7 +151,7 @@ namespace cvtsw
       [[nodiscard]] auto get_height() const -> int;
       [[nodiscard]] auto get_background() const -> cell<string_type>;
       
-      [[nodiscard]] auto get(const int column, const int line) -> cell<string_type>&;
+      [[nodiscard]] auto get_cell(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
       auto write_into(const string_type& text, const int column, const int line, const cell_format& formatting) -> void;
@@ -176,9 +176,9 @@ namespace cvtsw
       const char_type fill_char
    ) -> screen<std::basic_string<char_type>>;
 
-   // TODO this is broken, never reuses m_old_cells of screen. this needs to do something else
    struct pixel_screen {
    public:
+      color m_fill_color;
       std::vector<color> m_pixels;
 
    private:
@@ -215,7 +215,6 @@ namespace cvtsw
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
-      [[nodiscard]] auto get_fill_color() const -> color;
    };
 
    struct fg_rgb_color_sequence {
@@ -398,11 +397,9 @@ template<cvtsw::sequence_c sequence_type>
 [[nodiscard]] constexpr auto cvtsw::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
 {
    constexpr auto get_int_param_str_length = [](const int param) {
-      if (param < 10)
-         return 1;
-      if (param < 100)
-         return 2;
-      return 3;
+      if (param < 10)  return 1;
+      if (param < 100) return 2;
+      else             return 3;
    };
 
    if constexpr (is_any_of<sequence_type, char_sequence, wchar_sequence>) {
@@ -464,11 +461,6 @@ template<cvtsw::sequence_c sequence_type>
          reserve_size += get_int_param_str_length(sequence.m_amount);
       }
       else if constexpr (std::is_same_v<sequence_type, fg_index_color_sequence>)
-      {
-         reserve_size += 5; // "38;5;"
-         reserve_size += get_int_param_str_length(sequence.m_index);
-      }
-      else if constexpr (std::is_same_v<sequence_type, set_index_color_sequence>)
       {
          reserve_size += 5; // "38;5;"
          reserve_size += get_int_param_str_length(sequence.m_index);
@@ -762,7 +754,7 @@ auto cvtsw::screen<string_type>::write_into(
    const int ending_column = column + static_cast<int>(text.size());
    if (ending_column >= m_width)
    {
-      // ERROR
+      // ERROR TODO
    }
    for (int i = 0; i < text.size(); ++i) {
       m_cells[line * m_width + column + i].letter = text[i];
@@ -779,7 +771,7 @@ auto cvtsw::screen<string_type>::is_inside(const int column, const int line) con
 
 
 template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get(const int column, const int line) -> cell<string_type>&
+auto cvtsw::screen<string_type>::get_cell(const int column, const int line) -> cell<string_type>&
 {
    const int index = line * m_width + column;
    return m_cells[index];
@@ -938,7 +930,8 @@ cvtsw::pixel_screen::pixel_screen(
    const int start_halfline,
    const color& fill_color
 )
-   : m_pixels(width * halfline_height, fill_color)
+   : m_fill_color(fill_color)
+   , m_pixels(width * halfline_height, fill_color)
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
@@ -961,9 +954,9 @@ auto cvtsw::pixel_screen::get_string() const -> std::wstring
    // TODO iterator?
    for (int line = 0; line < m_screen.get_height(); ++line) {
       for (int column = 0; column < m_screen.get_width(); ++column) {
-         cell<std::wstring>& target_cell = m_screen.get(column, line);
-         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : get_fill_color();
-         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : get_fill_color();
+         cell<std::wstring>& target_cell = m_screen.get_cell(column, line);
+         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : m_fill_color;
+         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : m_fill_color;
       }
       halfline_top += 2;
       halfline_bottom += 2;
@@ -1027,15 +1020,10 @@ auto cvtsw::screen<string_type>::get_background() const -> cell<string_type>
    return m_background;
 }
 
-
-auto cvtsw::pixel_screen::get_fill_color() const -> color
-{
-   return m_screen.get_background().m_format.bg_color;
-}
-
 auto cvtsw::pixel_screen::clear() -> void
 {
-   m_screen.clear();
+   for (color& pixel : m_pixels)
+      pixel = m_fill_color;
 }
 
 template<cvtsw::std_string_type string_type>

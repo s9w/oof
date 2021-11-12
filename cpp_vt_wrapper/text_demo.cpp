@@ -71,13 +71,13 @@ namespace
          int line = 0;
          for (int i = 0; i < m_string.size(); ++i)
          {
-            scr.get(column, line).letter = m_string[i];
+            scr.get_cell(column, line).letter = m_string[i];
             const int format_index = std::clamp(drawn_letters - 1 - i, 0, 4);
 
             cell_format format{.fg_color = get_letter_color(i, drawn_letters)};
             if (m_bold_states[i] == bold_state::bold)
                format.m_bold = true;
-            scr.get(column, line).m_format = format;
+            scr.get_cell(column, line).m_format = format;
 
             ++column;
             if(column == scr.get_width())

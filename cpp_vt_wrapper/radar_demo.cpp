@@ -1,10 +1,5 @@
 #include "radar_demo.h"
 
-#include <chrono>
-#include <s9w/s9w_rng.h>
-#include <s9w/s9w_geom_types.h>
-#include <s9w/s9w_geom_alg.h>
-
 #include "../wrapper.h"
 using namespace cvtsw;
 #include "tools.h"
@@ -13,6 +8,7 @@ static s9w::rng_state rng;
 
 namespace
 {
+   // TODO replace fading globally with difference blending in s9w_color
    auto get_faded(const color& col) -> color {
       constexpr int fade_amount = 20;
       return color{
@@ -22,50 +18,48 @@ namespace
       };
    };
 
-   template<typename T>
-   auto nonstupid_atan2(const T y, const T x){
-      T result = std::atan2(y, x);
+   auto nonstupid_atan2(const double y, const double x){
+      double result = std::atan2(y, x);
       if (result < 0.0)
          result += 2.0 * std::numbers::pi_v<double>;
       return result;
    }
-}
+} // namespace {}
+
 
 auto radar_demo() -> void
 {
-   constexpr int width = 60;
-   constexpr int height = 60;
-   constexpr int pixel_count = width * height;
-   pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
-   constexpr s9w::dvec2 center{ width / 2.0, height / 2.0 };
-   constexpr s9w::dvec2 half_pixel_offset{ 0.5, 0.5 };
-   constexpr double arm_length = height / 2.0 - 5.0;
+   const int radar_width = 2 * get_screen_cell_dimensions()[1];
+   
+   pixel_screen px{ radar_width, radar_width, 0, 0, color{} };
+   const s9w::dvec2 center{ radar_width / 2.0 };
+   constexpr s9w::dvec2 half_pixel_offset{ 0.5 };
+   const double radar_radius = radar_width / 2.0 - 5.0;
 
    timer timer;
    while(true){
-
-      // Fading of all pixels to black
-      const int dim_runs = get_int(100.0 * pixel_count * timer.get_dt());
-      for(int i=0; i< dim_runs; ++i){
-         color& choice = rng.choice(px.m_pixels);
-         choice = get_faded(choice);
+      { // Randomly fading pixels to black
+         const int pixel_count = px.get_height() * px.get_width();
+         const int fade_runs = get_int(100.0 * pixel_count * timer.get_dt());
+         for (int i = 0; i < fade_runs; ++i) {
+            color& pixel = rng.choice(px.m_pixels);
+            pixel = get_faded(pixel);
+         }
       }
 
       // Radar arm
       constexpr double speed = 3.0;
       const double radar_phi = std::fmod(speed * timer.get_seconds_since_start(), 2.0 * std::numbers::pi_v<double>);
-      for(int y=0; y<height; ++y){
-         for (int x = 0; x < width; ++x){
-            const s9w::dvec2 pos = s9w::dvec2{ x, y } - center + half_pixel_offset;
-            const double radius = s9w::get_length(pos);
-            const double pixel_phi = nonstupid_atan2(pos[1], pos[0]);
-            if(std::abs(pixel_phi-radar_phi)<0.05 && radius < arm_length)
+      for(int y=0; y< radar_width; ++y){
+         for (int x = 0; x < radar_width; ++x){
+            const s9w::dvec2 rel_pos = s9w::dvec2{ x, y } - center + half_pixel_offset;
+            const double pixel_phi = nonstupid_atan2(rel_pos[1], rel_pos[0]);
+            if(s9w::equal(pixel_phi, radar_phi, 0.05) && s9w::get_length(rel_pos) < radar_radius)
                px.get_color(x, y) = color{ 255, 0, 0 };
          }
       }
       
       timer.mark_frame();
-
       fast_print(px.get_string());
       if(const auto fps = timer.get_fps(); fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));
