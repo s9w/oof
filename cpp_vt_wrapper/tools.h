@@ -110,6 +110,66 @@ inline auto get_random_color(s9w::rng_state& rng) -> color
 }
 
 
+// Sets up double ranges
+struct ranger {
+   std::vector<double> m_borders;
+
+   template<typename ... border_types>
+   explicit ranger(const border_types&... borders) {
+      static_assert((std::same_as<border_types, double> && ...), "All borders must be double values");
+      static_assert(sizeof...(borders) >= 2, "Needs at least two border values");
+
+      ((m_borders.emplace_back(borders)), ...);
+      for (int i = 1; i < std::size(m_borders); ++i) {
+         if (m_borders[i - 1] < m_borders[i] == false)
+            std::terminate();
+      }
+   }
+
+   auto is_in(const double value) const -> bool {
+      const bool is_out = value < m_borders.front() || value > m_borders.back();
+      return is_out == false;
+   }
+
+   auto get_zone(const double value) const -> std::optional<size_t> {
+      if (is_in(value) == false)
+         return std::nullopt;
+      return get_zone_direct(value);
+   }
+
+   auto get_progress(const double value) const -> std::optional<double> {
+      if (is_in(value) == false)
+         return std::nullopt;
+      const double zone_min = get_zone_min(value);
+      const double zone_max = get_zone_max(value);
+      return (value - zone_min) / (zone_max - zone_min);
+   }
+
+private:
+   // Assumes that value is in
+   auto get_zone_min(const double value) const -> double {
+      return m_borders[this->get_zone_direct(value)];
+   }
+   auto get_zone_max(const double value) const -> double {
+      if (value == m_borders.back())
+         return m_borders.back();
+      const size_t zone_index = this->get_zone_direct(value);
+      return m_borders[zone_index + 1];
+   }
+   auto get_zone_direct(const double value) const -> size_t {
+      // Last border is inclusive
+      if (value == m_borders.back())
+         return m_borders.size() - 2;
+
+      for (size_t i = 0; i < m_borders.size(); ++i) {
+         if (value < m_borders[i])
+            return i - 1;
+      }
+      std::terminate();
+   }
+};
+
+
 // provides:
 // - Time since start (to feed into sin() etc)
 // - Time since last frame (for time-delta actions)

@@ -8,59 +8,56 @@ using namespace cvtsw;
 
 namespace
 {
-   constexpr cell_format format0{ .fg_color = color{255, 0, 0} };
-   constexpr cell_format format1{ .fg_color = color{255, 50, 0} };
-   constexpr cell_format format2{ .fg_color = color{255, 100, 0} };
-   constexpr cell_format format3{ .fg_color = color{255, 150, 0} };
-   constexpr cell_format formatN{ .fg_color = color{247, 193, 5 } };
-   constexpr cell_format formats[]{ format0, format1, format2, format3, formatN };
 
    enum class bold_state{not_bold, bold}; // this is just to avoid std::vector<bool>
 
    // Capitalized words should be bold
    auto get_bold_state(const std::string& str) -> std::vector<bold_state>
    {
-      std::vector<bold_state> bold_states;
-      bold_states.reserve(str.size());
-
-      // First run: all capitalized letters
-      for (const char letter : str)
-         bold_states.push_back(std::isupper(letter) ? bold_state::bold : bold_state::not_bold);
-
-      // Then: Eliminate all single letters
-      for (int i = 0; i < bold_states.size(); ++i) {
-         if(i== bold_states.size()-1)
-            continue;
-         if (bold_states[i] == bold_state::bold && bold_states[i + 1] == bold_state::not_bold)
-            bold_states[i] = bold_state::not_bold;
+      std::vector<bold_state> bold_states(str.size(), bold_state::not_bold);
+      for (int i = 0; i < bold_states.size() - 1; ++i) {
+         if (std::isupper(str[i]) && std::isupper(str[i + 1]))
+            bold_states[i] = bold_state::bold;
       }
-
+      if (std::isupper(str.back()) && std::isupper(*(str.end()-1)))
+         bold_states.back() = bold_state::bold;
       return bold_states;
-   }
-
-
-   auto get_dimmed_color(const color& col, const double factor) -> color {
-      return color{
-         get_int<uint8_t>(factor * col.red),
-         get_int<uint8_t>(factor * col.green),
-         get_int<uint8_t>(factor * col.blue)
-      };
    }
 
    struct paragraph_writer{
       std::string m_string;
       std::vector<size_t> m_newline_pos;
       std::vector<bold_state> m_bold_states;
-      std::vector<double> m_line_intensity;
+      ranger m_zones;
 
-      paragraph_writer(std::vector<std::string>&& paras){
+      paragraph_writer(std::vector<std::string>&& paras)
+         : m_zones(-150.0, -25.0, -5.0, 0.0)
+      {
          for (std::string& str : paras) {
             m_string += std::move(str);
             m_newline_pos.emplace_back(m_string.size());
          }
-
          m_bold_states = get_bold_state(m_string);
-         m_line_intensity = { 1.0 };
+      }
+
+
+      auto get_letter_color(
+         const int i,
+         const int current_index
+      ) const -> color
+      {
+         const double relative_index = i - current_index;
+         const std::optional<size_t> zone_index = m_zones.get_zone(relative_index);
+         if (zone_index.has_value() == false)
+            return color{};
+         constexpr auto get_s9w_color = [](const size_t zone_index_v, const double x) {
+            constexpr s9w::srgb_u yellow{ 255, 219, 89 };
+            constexpr s9w::srgb_u red{ 255, 0, 0 };
+            if (zone_index_v == 0) return s9w::mix(s9w::srgb_u{}, yellow, x);
+            if (zone_index_v == 2) return s9w::mix(yellow, red, x);
+            return yellow;
+         };
+         return std::bit_cast<color>(get_s9w_color(*zone_index, *m_zones.get_progress(relative_index)));
       }
 
       auto write(
@@ -72,15 +69,14 @@ namespace
          
          int column = 0;
          int line = 0;
-         for (int i = 0; i < drawn_letters; ++i)
+         for (int i = 0; i < m_string.size(); ++i)
          {
             scr.get(column, line).letter = m_string[i];
             const int format_index = std::clamp(drawn_letters - 1 - i, 0, 4);
 
-            cell_format format = formats[format_index];
+            cell_format format{.fg_color = get_letter_color(i, drawn_letters)};
             if (m_bold_states[i] == bold_state::bold)
                format.m_bold = true;
-            format.fg_color = get_dimmed_color(format.fg_color, m_line_intensity[line]);
             scr.get(column, line).m_format = format;
 
             ++column;
@@ -94,15 +90,6 @@ namespace
                line += 1;
                column = 2;
             }
-            if (line >= m_line_intensity.size())
-               m_line_intensity.push_back(1.0);
-         }
-
-         // Dim all lines but the most recent two
-         for (int i = 0; i < m_line_intensity.size(); ++i) {
-            if (i >= std::ssize(m_line_intensity) - 2)
-               continue;
-            m_line_intensity[i] = std::clamp(m_line_intensity[i] - 0.0001, 0.0, 1.0);
          }
       }
    };
