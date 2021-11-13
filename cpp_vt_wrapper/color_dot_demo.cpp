@@ -41,7 +41,7 @@ auto color_dot_demo() -> void
    for (uint64_t i = 0; ; ++i) {
       {
          if (i % 10 == 0) {
-            for (color& col : px.m_pixels)
+            for (color& col : px)
                col = get_faded(col);
          }
       }

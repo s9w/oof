@@ -1,10 +1,9 @@
 #include "snow_demo.h"
 
-#include <s9w/s9w_rng.h>
-
 #include "../wrapper.h"
 using namespace cvtsw;
 #include "tools.h"
+
 
 static s9w::rng_state rng{2};
 
@@ -56,12 +55,9 @@ auto snow_demo() -> void
 
    timer timer;
    while (true) {
-
       // draw bg
-      for(int row=0; row<height; ++row)
-      {
-         for (int column = 0; column < width; ++column)
-         {
+      for(int row=0; row<height; ++row){
+         for (int column = 0; column < width; ++column){
             const double height_progress = 1.0 * row / (height - 1);
             const color bg_color{
                get_int<uint8_t>(30*height_progress),
@@ -73,8 +69,7 @@ auto snow_demo() -> void
       }
 
       // draw snow
-      for(const snowflake& flake : snowflakes)
-      {
+      for(const snowflake& flake : snowflakes){
          const auto& [column, row] = flake.m_pos.get_indices();
          if (px.is_in(column, row)) {
             constexpr int min_brightness = 50;
@@ -112,8 +107,7 @@ auto snow_demo() -> void
       }
 
       // New snow
-      if(rng.get_flip(0.02))
-      {
+      if(rng.get_flip(20.0 * timer.get_dt())){
          snowflakes.push_back(
             snowflake{
                .m_pos = flake_pos{
@@ -128,9 +122,7 @@ auto snow_demo() -> void
       // Remove flakes that run out of the bottom (for performance)
       remove_from_vector(
          snowflakes,
-         [](const snowflake& flake){
-            return flake.m_pos.m_row > height;
-         }
+         [](const snowflake& flake){ return flake.m_pos.m_row > height; }
       );
 
       // Remove flakes that touch a sticking spot but couldn't stick (so they don't fly over the sticky snow)
@@ -148,6 +140,8 @@ auto snow_demo() -> void
       );
 
       timer.mark_frame();
-       fast_print(px.get_string());
+      fast_print(px.get_string());
+      if (const auto fps = timer.get_fps(); fps.has_value())
+         set_window_title("FPS: " + std::to_string(*fps));
    }
 }

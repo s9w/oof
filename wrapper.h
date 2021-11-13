@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include <string>
 #include <optional>
-#include <vector>
+#include <string>
 #include <variant>
+#include <vector>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -17,7 +17,7 @@ namespace cvtsw
    // Feel free to bit_cast, reinterpret_cast or memcpy your 3-byte color type into this.
    struct color {
       uint8_t red{}, green{}, blue{};
-      friend constexpr auto operator<=>(const color&, const color&) = default;
+      friend constexpr auto operator==(const color&, const color&) -> bool = default;
    };
 
    struct fg_rgb_color_sequence;
@@ -106,7 +106,7 @@ namespace cvtsw
       bool m_bold = false;
       color fg_color{255, 255, 255};
       color bg_color{0, 0, 0};
-      friend constexpr auto operator<=>(const cell_format&, const cell_format&) = default;
+      friend constexpr auto operator==(const cell_format&, const cell_format&) -> bool = default;
    };
 
    template<cvtsw::std_string_type string_type>
@@ -115,21 +115,20 @@ namespace cvtsw
 
       char_type letter{};
       cell_format m_format;
-      friend constexpr auto operator<=>(const cell&, const cell&) = default;
+      friend constexpr auto operator==(const cell&, const cell&) -> bool = default;
    };
 
    template<cvtsw::std_string_type string_type>
    struct screen{
+   private:
       using char_type = typename string_type::value_type;
 
-      std::vector<cell<string_type>> m_cells;
-
-   private:
       int m_width = 0;
       int m_height = 0;
       int m_origin_line = 0;
       int m_origin_column = 0;
       cell<string_type> m_background;
+      std::vector<cell<string_type>> m_cells;
       mutable std::vector<cell<string_type>> m_old_cells;
       mutable std::vector<sequence_variant_type> m_sequence_buffer;
       
@@ -165,7 +164,7 @@ namespace cvtsw
       [[nodiscard]] auto end()         { return std::end(m_cells); }
 
    private:
-      [[nodiscard]] auto update_sequence_buffer() const -> void;
+      auto update_sequence_buffer() const -> void;
    };
 
 
@@ -177,17 +176,16 @@ namespace cvtsw
    ) -> screen<std::basic_string<char_type>>;
 
    struct pixel_screen {
-   public:
-      color m_fill_color;
-      std::vector<color> m_pixels;
-
    private:
+      color m_fill_color;
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
       int m_origin_column = 0;
       int m_origin_halfline = 0;
       mutable screen<std::wstring> m_screen;
 
    public:
+      std::vector<color> m_pixels;
+
       explicit pixel_screen(
          const int width, const int halfline_height,
          const int start_column, const int start_halfline,
@@ -342,11 +340,11 @@ namespace cvtsw
             jumped_pos.m_index = m_index + jump_amount;
             return jumped_pos;
          }
-         constexpr cell_pos& operator++() {
+         constexpr auto operator++() -> cell_pos& {
             ++m_index;
             return *this;
          }
-         friend constexpr auto operator<=>(const cell_pos&, const cell_pos&) = default;
+         friend constexpr auto operator==(const cell_pos&, const cell_pos&) -> bool = default;
       };
 
 
@@ -388,7 +386,7 @@ namespace cvtsw
       template<std_string_type string_type>
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
 
-   } // namespace cvtsw::detail
+   } // namespace detail
 } // namespace cvtsw
 
 
@@ -931,11 +929,12 @@ cvtsw::pixel_screen::pixel_screen(
    const color& fill_color
 )
    : m_fill_color(fill_color)
-   , m_pixels(width * halfline_height, fill_color)
+   
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
    , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, detail::get_pixel_background(fill_color))
+   , m_pixels(width* halfline_height, fill_color)
 {
 
 }
