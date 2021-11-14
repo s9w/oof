@@ -29,7 +29,7 @@ namespace {
          , m_bar_width(bar_width)
          , m_screen(m_bar_start_column + bar_width, 1, 0, line, L'━')
       {
-         m_screen.write_into(description+L": ", 0, 0, cell_format{});
+         m_screen.write_into(description+L": ", 0, 0, cell_format{.fg_color=color{255, 100, 100}});
       }
 
       auto set_value(const double value)

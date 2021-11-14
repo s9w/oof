@@ -5,13 +5,6 @@
 #include <variant>
 #include <vector>
 
-#ifdef TRACY_ENABLE
-#include <tracy/Tracy.hpp>
-#else
-#define ZoneScoped
-#define ZoneScopedN(x)
-#endif
-
 namespace cvtsw
 {
    // Feel free to bit_cast, reinterpret_cast or memcpy your 3-byte color type into this.
@@ -661,8 +654,6 @@ auto cvtsw::detail::get_index_color_seq_str(
 template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::update_sequence_buffer() const -> void
 {
-   ZoneScoped;
-
    detail::draw_state<string_type> state{};
    m_sequence_buffer.clear();
    m_sequence_buffer.push_back(reset_sequence{});
@@ -782,19 +773,13 @@ auto cvtsw::get_string_from_sequences(
 ) -> string_type
 {
    size_t reserve_size{};
-   {
-      ZoneScopedN("reserve size");
-      for (const sequence_variant_type& sequence : sequences)
-         std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
-   }
+   for (const sequence_variant_type& sequence : sequences)
+      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
 
    string_type result_str;
    result_str.reserve(reserve_size);
-   {
-      ZoneScopedN("writing sequence into string");
-      for (const sequence_variant_type& sequence : sequences)
-         std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
-   }
+   for (const sequence_variant_type& sequence : sequences)
+      std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
 
    return result_str;
 }
@@ -926,7 +911,6 @@ cvtsw::pixel_screen::pixel_screen(
    const color& fill_color
 )
    : m_fill_color(fill_color)
-   
    , m_halfline_height(halfline_height)
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)

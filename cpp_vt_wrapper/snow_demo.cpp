@@ -67,7 +67,7 @@ auto draw_snowflake(
 
 auto snow_demo() -> void
 {
-   constexpr int width = 80;
+   constexpr int width = 60;
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
    pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
