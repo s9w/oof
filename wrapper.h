@@ -136,19 +136,19 @@ namespace cvtsw
    public:
       explicit screen(
          const int width, const int height,
-         const int start_column, const int start_line, 
-         const char_type fill_char
-      );
-      explicit screen(
-         const int width, const int height,
          const int start_column, const int start_line,
          const cell<string_type>& background
       );
 
+      // This constructor taking a fill_char implies black background, white foreground color
+      explicit screen(
+         const int width, const int height,
+         const int start_column, const int start_line, 
+         const char_type fill_char
+      );
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
-      [[nodiscard]] auto get_background() const -> cell<string_type>;
       
       [[nodiscard]] auto get_cell(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
@@ -167,13 +167,10 @@ namespace cvtsw
       auto update_sequence_buffer() const -> void;
    };
 
-
    // Deduction guide
    template<typename char_type>
-   screen(const int width, const int height,
-      const int start_column, const int start_line,
-      const char_type fill_char
-   ) -> screen<std::basic_string<char_type>>;
+   screen(int width, int height, int start_column, int start_line, char_type fill_char)
+      -> screen<std::basic_string<char_type>>;
 
    struct pixel_screen {
    private:
@@ -308,8 +305,7 @@ namespace cvtsw
 
    namespace detail
    {
-
-      [[nodiscard]] auto get_pixel_background(const color& fill_color)->cell<std::wstring>;
+      [[nodiscard]] constexpr auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
       template<cvtsw::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
@@ -354,10 +350,10 @@ namespace cvtsw
          std::optional<cell_pos> m_last_written_pos;
          std::optional<cell_format> m_format;
          
-         explicit draw_state(){}
+         explicit draw_state() = default;
 
          auto write_sequence(
-            std::vector<sequence_variant_type>& m_target_sequences,
+            std::vector<sequence_variant_type>& sequence_buffer,
             const cell_type& target_cell_state,
             const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
             const cell_pos& target_pos,
@@ -406,7 +402,7 @@ template<cvtsw::sequence_c sequence_type>
    else if constexpr (std::is_same_v<sequence_type, set_index_color_sequence>) {
       size_t reserve_size = 0;
       reserve_size += 4; // \x1b]4;
-      reserve_size += get_int_param_str_length(sequence.m_index);; // <i>;
+      reserve_size += get_int_param_str_length(sequence.m_index); // <i>;
       reserve_size += 4; // ;rgb:
 
       constexpr auto get_component_str_size = [](const uint8_t component) {
@@ -754,9 +750,10 @@ auto cvtsw::screen<string_type>::write_into(
    {
       // ERROR TODO
    }
-   for (int i = 0; i < text.size(); ++i) {
-      m_cells[line * m_width + column + i].letter = text[i];
-      m_cells[line * m_width + column + i].m_format = formatting;
+   for (size_t i = 0; i < text.size(); ++i) {
+      const size_t index = line * m_width + column + i;
+      m_cells[index].letter = text[i];
+      m_cells[index].m_format = formatting;
    }
 }
 
@@ -986,7 +983,7 @@ auto cvtsw::pixel_screen::get_color(
    const int halfline
 ) const -> const color&
 {
-   const int index = halfline * this->get_width() + column;
+   const size_t index = halfline * this->get_width() + column;
    return m_pixels[index];
 }
 
@@ -1010,13 +1007,6 @@ auto cvtsw::pixel_screen::get_width() const -> int
 auto cvtsw::pixel_screen::get_height() const -> int
 {
    return m_halfline_height;
-}
-
-
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_background() const -> cell<string_type>
-{
-   return m_background;
 }
 
 auto cvtsw::pixel_screen::clear() -> void
@@ -1114,7 +1104,7 @@ auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_ty
 }
 
 
-auto cvtsw::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
+constexpr auto cvtsw::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
 {
    return cell<std::wstring>{
       .letter = L'▀',
