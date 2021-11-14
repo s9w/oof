@@ -2,15 +2,14 @@
 
 #include "../wrapper.h"
 using namespace cvtsw;
+
 #include "tools.h"
-
-
-static s9w::rng_state rng{2};
-
 
 
 namespace
 {
+   s9w::rng_state rng{ 2 };
+
    struct flake_pos{
       double m_column{};
       double m_row{};
@@ -28,30 +27,59 @@ namespace
    enum class stick_state{no_stick, can_stick };
 }
 
+auto draw_partial_snowflake(
+   const double brightness,
+   const double ratio,
+   pixel_screen& px,
+   const int column,
+   const int row
+) -> void
+{
+   if (px.is_in(column, row) == false)
+      return;
+   const uint8_t component = get_int<uint8_t>(brightness);
+   const uint8_t alpha = get_int<uint8_t>(ratio * 255.0);
+   const s9w::srgba_u snow_color{ component, component, component, alpha };
+
+   color& target = px.get_color(column, row);
+   const s9w::srgb_u blend_result = s9w::blend(std::bit_cast<s9w::srgb_u>(target), snow_color);
+   target = std::bit_cast<color>(blend_result);
+}
+
+
+auto draw_snowflake(
+   const snowflake& flake,
+   pixel_screen& px
+) -> void
+{
+   constexpr int min_brightness = 50;
+   constexpr int delta_brightness = 255 - min_brightness;
+   const double target_brightness = min_brightness + delta_brightness * flake.m_frontality;
+
+   const int column = get_int(flake.m_pos.m_column - 0.5);
+   const int upper_row = get_int(flake.m_pos.m_row - 0.5);
+   const double second_ratio = std::fmod(flake.m_pos.m_row, 1.0);
+
+   draw_partial_snowflake(target_brightness, 1.0-second_ratio, px, column, upper_row);
+   draw_partial_snowflake(target_brightness, second_ratio, px, column, upper_row+1);
+}
+
+
 auto snow_demo() -> void
 {
-   constexpr int width = 40;
-   constexpr int height = 60;
+   constexpr int width = 80;
+   const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
    pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
 
    std::vector<stick_state> neigh(width*height, stick_state::no_stick);
    for(int column=0; column<width; ++column)
    {
-      constexpr int row = height - 1;
+      const int row = height - 1;
       const int index = row * width + column;
       neigh[index] = stick_state::can_stick;
    }
    std::vector<snowflake> snowflakes;
-   snowflakes.push_back(
-      snowflake{
-         .m_pos = flake_pos{
-            rng.get_real(0.0, width - 1.0),
-            -1.0
-         },
-         .m_frontality = 1.0
-      }
-   );
 
    timer timer;
    while (true) {
@@ -69,15 +97,8 @@ auto snow_demo() -> void
       }
 
       // draw snow
-      for(const snowflake& flake : snowflakes){
-         const auto& [column, row] = flake.m_pos.get_indices();
-         if (px.is_in(column, row)) {
-            constexpr int min_brightness = 50;
-            constexpr int delta_brightness = 255 - min_brightness;
-            const uint8_t value = get_int<uint8_t>(min_brightness + delta_brightness * flake.m_frontality);
-            px.get_color(column, row) = color{ value, value, value };
-         }
-      }
+      for(const snowflake& flake : snowflakes)
+         draw_snowflake(flake, px);
 
       // move snow
       for (snowflake& flake : snowflakes)
@@ -122,7 +143,7 @@ auto snow_demo() -> void
       // Remove flakes that run out of the bottom (for performance)
       remove_from_vector(
          snowflakes,
-         [](const snowflake& flake){ return flake.m_pos.m_row > height; }
+         [&](const snowflake& flake){ return flake.m_pos.m_row > height; }
       );
 
       // Remove flakes that touch a sticking spot but couldn't stick (so they don't fly over the sticky snow)
