@@ -108,7 +108,7 @@ namespace cvtsw
    struct cell {
       using char_type = typename string_type::value_type;
 
-      char_type letter{};
+      char_type m_letter{};
       cell_format m_format;
       friend constexpr auto operator==(const cell&, const cell&) -> bool = default;
    };
@@ -473,10 +473,10 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 {
    using char_type = typename stream_type::char_type;
    using string_type = std::basic_string<char_type>;
-   string_type temp;
-   temp.reserve(detail::get_sequence_string_size(sequence));
-   write_sequence_into_string(temp, sequence);
-   os << temp;
+   string_type temp_string{};
+   temp_string.reserve(detail::get_sequence_string_size(sequence));
+   write_sequence_into_string(temp_string, sequence);
+   os << temp_string;
    return os;
 }
 
@@ -766,9 +766,9 @@ auto cvtsw::screen<string_type>::write_into(
       // ERROR TODO
    }
    for (size_t i = 0; i < text.size(); ++i) {
-      const size_t index = line * m_width + column + i;
-      m_cells[index].letter = text[i];
-      m_cells[index].m_format = formatting;
+      cell<string_type>& cell = m_cells[line * m_width + column + i];
+      cell.m_letter = text[i];
+      cell.m_format = formatting;
    }
 }
 
@@ -816,7 +816,7 @@ auto cvtsw::get_string_from_sequences(
    const std::vector<sequence_variant_type>& sequences
 ) -> string_type
 {
-   string_type result_str;
+   string_type result_str{};
    result_str.reserve(::cvtsw::get_string_reserve_size(sequences));
    ::cvtsw::detail::write_sequence_string_no_reserve(sequences, result_str);
    return result_str;
@@ -1008,9 +1008,8 @@ auto cvtsw::pixel_screen::get_line_height() const -> int
 
 auto cvtsw::pixel_screen::is_in(const int column, const int halfline) const -> bool
 {
-   const int index = halfline * this->get_width() + column;
-   const bool is_out = index < 0 || index >(m_pixels.size() - 1);
-   return !is_out;
+   const size_t index = halfline * this->get_width() + column;
+   return index >= 0 && index < m_pixels.size();
 }
 
 
@@ -1029,7 +1028,7 @@ auto cvtsw::pixel_screen::get_color(
    const int halfline
 ) -> color&
 {
-   const int index = halfline * this->get_width() + column;
+   const size_t index = halfline * this->get_width() + column;
    return m_pixels[index];
 }
 
@@ -1045,11 +1044,13 @@ auto cvtsw::pixel_screen::get_height() const -> int
    return m_halfline_height;
 }
 
+
 auto cvtsw::pixel_screen::clear() -> void
 {
    for (color& pixel : m_pixels)
       pixel = m_fill_color;
 }
+
 
 template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::clear() -> void
@@ -1057,6 +1058,7 @@ auto cvtsw::screen<string_type>::clear() -> void
    for (cell<string_type>& cell : *this)
       cell = m_background;
 }
+
 
 template<cvtsw::std_string_type string_type>
 auto cvtsw::detail::draw_state<string_type>::write_sequence(
@@ -1099,7 +1101,7 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
       );
    }
 
-   sequence_buffer.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.letter });
+   sequence_buffer.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.m_letter });
 
    m_last_written_pos = target_pos;
    m_format = target_cell_state.m_format;
@@ -1134,7 +1136,7 @@ auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
 template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
 auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_type
 {
-   string_type result;
+   string_type result{};
    write_sequence_into_string(result, sequence);
    return result;
 }
@@ -1143,7 +1145,7 @@ auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_ty
 constexpr auto cvtsw::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
 {
    return cell<std::wstring>{
-      .letter = L'▀',
+      .m_letter = L'▀',
       .m_format = {
          .fg_color = fill_color,
          .bg_color = fill_color
