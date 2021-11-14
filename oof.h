@@ -5,7 +5,7 @@
 #include <variant>
 #include <vector>
 
-namespace cvtsw
+namespace oof
 {
    // Feel free to bit_cast, reinterpret_cast or memcpy your 3-byte color type into this.
    struct color {
@@ -81,18 +81,18 @@ namespace cvtsw
    template<typename T>
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
 
-   template<typename stream_type, cvtsw::sequence_c sequence_type>
+   template<typename stream_type, oof::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
 
-   template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
+   template<oof::std_string_type string_type, oof::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
 
-   template<cvtsw::std_string_type string_type>
+   template<oof::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
    [[nodiscard]] auto get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t;
 
-   template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
+   template<oof::std_string_type string_type, oof::sequence_c sequence_type>
    [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence) -> string_type;
 
 
@@ -104,7 +104,7 @@ namespace cvtsw
       friend constexpr auto operator==(const cell_format&, const cell_format&) -> bool = default;
    };
 
-   template<cvtsw::std_string_type string_type>
+   template<oof::std_string_type string_type>
    struct cell {
       using char_type = typename string_type::value_type;
 
@@ -113,7 +113,7 @@ namespace cvtsw
       friend constexpr auto operator==(const cell&, const cell&) -> bool = default;
    };
 
-   template<cvtsw::std_string_type string_type>
+   template<oof::std_string_type string_type>
    struct screen{
    private:
       using char_type = typename string_type::value_type;
@@ -305,13 +305,13 @@ namespace cvtsw
    {
       [[nodiscard]] constexpr auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
-      template<cvtsw::std_string_type string_type>
+      template<oof::std_string_type string_type>
       [[nodiscard]] auto write_sequence_string_no_reserve(const std::vector<sequence_variant_type>& sequences, string_type& target) -> void;
 
-      template<cvtsw::sequence_c sequence_type>
+      template<oof::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
 
-      template<cvtsw::std_string_type string_type, std::integral int_type>
+      template<oof::std_string_type string_type, std::integral int_type>
       auto write_int_to_string(string_type& target, const int_type value, const bool with_leading_semicolon) -> void;
 
       struct cell_pos {
@@ -345,7 +345,7 @@ namespace cvtsw
       };
 
 
-      template<cvtsw::std_string_type string_type>
+      template<oof::std_string_type string_type>
       struct draw_state{
          using cell_type = cell<string_type>;
          std::optional<cell_pos> m_last_written_pos;
@@ -367,14 +367,14 @@ namespace cvtsw
       };
 
 
-      template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
+      template<oof::std_string_type string_type, typename T, typename ... Ts>
       auto write_ints_into_string(
          string_type& target,
          const T& first,
          const Ts&... rest
       ) -> void;
 
-      template<cvtsw::std_string_type string_type>
+      template<oof::std_string_type string_type>
       [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
 
       template<typename T, typename ... types>
@@ -384,12 +384,12 @@ namespace cvtsw
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
 
    } // namespace detail
-} // namespace cvtsw
+} // namespace oof
 
 
 // Constexpr, therefore defined here
-template<cvtsw::sequence_c sequence_type>
-[[nodiscard]] constexpr auto cvtsw::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
+template<oof::sequence_c sequence_type>
+[[nodiscard]] constexpr auto oof::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
 {
    constexpr auto get_int_param_str_length = [](const int param) {
       if (param < 10)  return 1;
@@ -468,8 +468,8 @@ template<cvtsw::sequence_c sequence_type>
 
 
 // This will deliberately be instantiated at compiletime
-template<typename stream_type, cvtsw::sequence_c sequence_type>
-auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&
+template<typename stream_type, oof::sequence_c sequence_type>
+auto oof::operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&
 {
    using char_type = typename stream_type::char_type;
    using string_type = std::basic_string<char_type>;
@@ -484,8 +484,8 @@ auto cvtsw::operator<<(stream_type& os, const sequence_type& sequence) -> stream
 #ifdef CM_IMPL
 
 // Instantiated by write_ints_into_string()
-template<cvtsw::std_string_type string_type, std::integral int_type>
-auto cvtsw::detail::write_int_to_string(
+template<oof::std_string_type string_type, std::integral int_type>
+auto oof::detail::write_int_to_string(
    string_type& target,
    const int_type value,
    const bool with_leading_semicolon
@@ -506,8 +506,8 @@ auto cvtsw::detail::write_int_to_string(
 
 
 // Instantiated by write_sequence_into_string()
-template<cvtsw::std_string_type string_type, typename T, typename ... Ts>
-auto cvtsw::detail::write_ints_into_string(string_type& target, const T& first, const Ts&... rest) -> void
+template<oof::std_string_type string_type, typename T, typename ... Ts>
+auto oof::detail::write_ints_into_string(string_type& target, const T& first, const Ts&... rest) -> void
 {
    detail::write_int_to_string(target, first, false);
    (detail::write_int_to_string(target, rest, true), ...);
@@ -515,8 +515,8 @@ auto cvtsw::detail::write_ints_into_string(string_type& target, const T& first, 
 
 
 // Instantiated by write_sequence_string_no_reserve()
-template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
-auto cvtsw::write_sequence_into_string(
+template<oof::std_string_type string_type, oof::sequence_c sequence_type>
+auto oof::write_sequence_into_string(
    string_type& target,
    const sequence_type& sequence
 ) -> void
@@ -619,8 +619,8 @@ auto cvtsw::write_sequence_into_string(
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::get_index_color_seq_str(
+template<oof::std_string_type string_type>
+auto oof::detail::get_index_color_seq_str(
    const set_index_color_sequence& sequence
 ) -> string_type
 {
@@ -659,8 +659,8 @@ auto cvtsw::detail::get_index_color_seq_str(
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::update_sequence_buffer() const -> void
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::update_sequence_buffer() const -> void
 {
    detail::draw_state<string_type> state{};
    m_sequence_buffer.clear();
@@ -684,8 +684,8 @@ auto cvtsw::screen<string_type>::update_sequence_buffer() const -> void
 }
 
 
-template<cvtsw::std_string_type string_type>
-cvtsw::screen<string_type>::screen(
+template<oof::std_string_type string_type>
+oof::screen<string_type>::screen(
    const int width, const int height,
    const int start_column, const int start_line,
    const char_type fill_char
@@ -696,8 +696,8 @@ cvtsw::screen<string_type>::screen(
 }
 
 
-template<cvtsw::std_string_type string_type>
-cvtsw::screen<string_type>::screen(
+template<oof::std_string_type string_type>
+oof::screen<string_type>::screen(
    const int width, const int height,
    const int start_column, const int start_line,
    const cell<string_type>& background
@@ -713,48 +713,48 @@ cvtsw::screen<string_type>::screen(
 }
 
 
-template <cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_width() const -> int
+template <oof::std_string_type string_type>
+auto oof::screen<string_type>::get_width() const -> int
 {
    return m_width;
 }
 
 
-template <cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_height() const -> int
+template <oof::std_string_type string_type>
+auto oof::screen<string_type>::get_height() const -> int
 {
    return m_height;
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_string() const -> string_type
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::get_string() const -> string_type
 {
    this->update_sequence_buffer();
-   string_type result = ::cvtsw::get_string_from_sequences<string_type>(m_sequence_buffer);
+   string_type result = ::oof::get_string_from_sequences<string_type>(m_sequence_buffer);
    m_old_cells = m_cells;
    return result;
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::write_string(string_type& buffer) const -> void
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::write_string(string_type& buffer) const -> void
 {
    this->update_sequence_buffer();
 
    // Reserve if the string buffer is still empty (on the first call)
    if (buffer.empty())
-      buffer.reserve(::cvtsw::get_string_reserve_size(m_sequence_buffer));
+      buffer.reserve(::oof::get_string_reserve_size(m_sequence_buffer));
 
    buffer.clear();
 
-   ::cvtsw::detail::write_sequence_string_no_reserve(m_sequence_buffer, buffer);
+   ::oof::detail::write_sequence_string_no_reserve(m_sequence_buffer, buffer);
    m_old_cells = m_cells;
 }
 
 
-template <cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::write_into(
+template <oof::std_string_type string_type>
+auto oof::screen<string_type>::write_into(
    const string_type& text,
    const int column, const int line,
    const cell_format& formatting
@@ -773,24 +773,24 @@ auto cvtsw::screen<string_type>::write_into(
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::is_inside(const int column, const int line) const -> bool
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::is_inside(const int column, const int line) const -> bool
 {
    return column >= 0 && column < m_width&& line >= 0 && line < m_height;
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::get_cell(const int column, const int line) -> cell<string_type>&
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::get_cell(const int column, const int line) -> cell<string_type>&
 {
    const int index = line * m_width + column;
    return m_cells[index];
 }
-template struct cvtsw::screen<std::string>;
-template struct cvtsw::screen<std::wstring>;
+template struct oof::screen<std::string>;
+template struct oof::screen<std::wstring>;
 
 
-auto cvtsw::get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t
+auto oof::get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t
 {
    size_t reserve_size{};
    for (const sequence_variant_type& sequence : sequences)
@@ -799,9 +799,9 @@ auto cvtsw::get_string_reserve_size(const std::vector<sequence_variant_type>& se
 }
 
 
-// Instantiated by cvtsw::screen<string_type>::get_string()
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::write_sequence_string_no_reserve(
+// Instantiated by oof::screen<string_type>::get_string()
+template<oof::std_string_type string_type>
+auto oof::detail::write_sequence_string_no_reserve(
    const std::vector<sequence_variant_type>& sequences,
    string_type& target
 ) -> void
@@ -811,21 +811,21 @@ auto cvtsw::detail::write_sequence_string_no_reserve(
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::get_string_from_sequences(
+template<oof::std_string_type string_type>
+auto oof::get_string_from_sequences(
    const std::vector<sequence_variant_type>& sequences
 ) -> string_type
 {
    string_type result_str{};
-   result_str.reserve(::cvtsw::get_string_reserve_size(sequences));
-   ::cvtsw::detail::write_sequence_string_no_reserve(sequences, result_str);
+   result_str.reserve(::oof::get_string_reserve_size(sequences));
+   ::oof::detail::write_sequence_string_no_reserve(sequences, result_str);
    return result_str;
 }
-template auto cvtsw::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::string;
-template auto cvtsw::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::wstring;
+template auto oof::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::string;
+template auto oof::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::wstring;
 
 
-auto cvtsw::position(const int line, const int column) -> position_sequence {
+auto oof::position(const int line, const int column) -> position_sequence {
    return position_sequence{
       .m_line = static_cast<uint8_t>(line),
       .m_column = static_cast<uint8_t>(column)
@@ -833,41 +833,41 @@ auto cvtsw::position(const int line, const int column) -> position_sequence {
 }
 
 
-auto cvtsw::vposition(const int line) -> vposition_sequence {
+auto oof::vposition(const int line) -> vposition_sequence {
    return vposition_sequence{ static_cast<uint8_t>(line) };
 }
 
 
-auto cvtsw::hposition(const int column) -> hposition_sequence {
+auto oof::hposition(const int column) -> hposition_sequence {
    return hposition_sequence{ static_cast<uint8_t>(column) };
 }
 
 
-auto cvtsw::move_left(const int amount) -> move_left_sequence
+auto oof::move_left(const int amount) -> move_left_sequence
 {
    return move_left_sequence{ static_cast<uint8_t>(amount)};
 }
 
 
-auto cvtsw::move_right(const int amount) -> move_right_sequence
+auto oof::move_right(const int amount) -> move_right_sequence
 {
    return move_right_sequence{ static_cast<uint8_t>(amount) };
 }
 
 
-auto cvtsw::move_up(const int amount) -> move_up_sequence
+auto oof::move_up(const int amount) -> move_up_sequence
 {
    return move_up_sequence{ static_cast<uint8_t>(amount) };
 }
 
 
-auto cvtsw::move_down(const int amount) -> move_down_sequence
+auto oof::move_down(const int amount) -> move_down_sequence
 {
    return move_down_sequence{ static_cast<uint8_t>(amount) };
 }
 
 
-auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
+auto oof::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
    return fg_rgb_color_sequence{
       .m_color = color{
          static_cast<uint8_t>(r),
@@ -878,18 +878,18 @@ auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequ
 }
 
 
-auto cvtsw::fg_color(const color& col) -> fg_rgb_color_sequence {
+auto oof::fg_color(const color& col) -> fg_rgb_color_sequence {
    return fg_rgb_color_sequence{ col };
 }
 
 
-auto cvtsw::fg_color(const int index) -> fg_index_color_sequence
+auto oof::fg_color(const int index) -> fg_index_color_sequence
 {
    return fg_index_color_sequence{ index };
 }
 
 
-auto cvtsw::set_index_color(
+auto oof::set_index_color(
    const int index,
    const color& col
 ) -> set_index_color_sequence
@@ -898,7 +898,7 @@ auto cvtsw::set_index_color(
 }
 
 
-auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence {
+auto oof::bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence {
    return bg_rgb_color_sequence{
       color{
          static_cast<uint8_t>(r),
@@ -909,41 +909,41 @@ auto cvtsw::bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequ
 }
 
 
-auto cvtsw::bg_color(const color& col) -> bg_rgb_color_sequence
+auto oof::bg_color(const color& col) -> bg_rgb_color_sequence
 {
    return bg_rgb_color_sequence{ col };
 }
 
 
-auto cvtsw::bg_color(const int index) -> bg_index_color_sequence
+auto oof::bg_color(const int index) -> bg_index_color_sequence
 {
    return bg_index_color_sequence{ index };
 }
 
 
-auto cvtsw::underline(const bool new_value) -> underline_sequence
+auto oof::underline(const bool new_value) -> underline_sequence
 {
    return underline_sequence{ new_value };
 }
 
 
-auto cvtsw::bold(const bool new_value) -> bold_sequence
+auto oof::bold(const bool new_value) -> bold_sequence
 {
    return bold_sequence{ new_value };
 }
 
 
-auto cvtsw::reset_formatting() -> reset_sequence {
+auto oof::reset_formatting() -> reset_sequence {
    return reset_sequence{};
 }
 
 
-auto cvtsw::clear_screen() -> clear_screen_sequence {
+auto oof::clear_screen() -> clear_screen_sequence {
    return clear_screen_sequence{};
 }
 
 
-cvtsw::pixel_screen::pixel_screen(
+oof::pixel_screen::pixel_screen(
    const int width,
    const int halfline_height,
    const int start_column,
@@ -961,13 +961,13 @@ cvtsw::pixel_screen::pixel_screen(
 }
 
 
-auto cvtsw::pixel_screen::get_screen_ref() -> screen<std::wstring>&
+auto oof::pixel_screen::get_screen_ref() -> screen<std::wstring>&
 {
    return m_screen;
 }
 
 
-auto cvtsw::pixel_screen::compute_result() const -> void
+auto oof::pixel_screen::compute_result() const -> void
 {
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
@@ -984,21 +984,21 @@ auto cvtsw::pixel_screen::compute_result() const -> void
 }
 
 
-auto cvtsw::pixel_screen::get_string() const -> std::wstring
+auto oof::pixel_screen::get_string() const -> std::wstring
 {
    compute_result();
    return m_screen.get_string();
 }
 
 
-auto cvtsw::pixel_screen::write_string(std::wstring& buffer) const -> void
+auto oof::pixel_screen::write_string(std::wstring& buffer) const -> void
 {
    compute_result();
    m_screen.write_string(buffer);
 }
 
 
-auto cvtsw::pixel_screen::get_line_height() const -> int
+auto oof::pixel_screen::get_line_height() const -> int
 {
    const int first_line = m_origin_halfline / 2;
    const int last_line = (m_origin_halfline - 1 + m_halfline_height) / 2;
@@ -1006,14 +1006,14 @@ auto cvtsw::pixel_screen::get_line_height() const -> int
 }
 
 
-auto cvtsw::pixel_screen::is_in(const int column, const int halfline) const -> bool
+auto oof::pixel_screen::is_in(const int column, const int halfline) const -> bool
 {
    const size_t index = halfline * this->get_width() + column;
    return index >= 0 && index < m_pixels.size();
 }
 
 
-auto cvtsw::pixel_screen::get_color(
+auto oof::pixel_screen::get_color(
    const int column,
    const int halfline
 ) const -> const color&
@@ -1023,7 +1023,7 @@ auto cvtsw::pixel_screen::get_color(
 }
 
 
-auto cvtsw::pixel_screen::get_color(
+auto oof::pixel_screen::get_color(
    const int column,
    const int halfline
 ) -> color&
@@ -1033,35 +1033,35 @@ auto cvtsw::pixel_screen::get_color(
 }
 
 
-auto cvtsw::pixel_screen::get_width() const -> int
+auto oof::pixel_screen::get_width() const -> int
 {
    return m_screen.get_width();
 }
 
 
-auto cvtsw::pixel_screen::get_height() const -> int
+auto oof::pixel_screen::get_height() const -> int
 {
    return m_halfline_height;
 }
 
 
-auto cvtsw::pixel_screen::clear() -> void
+auto oof::pixel_screen::clear() -> void
 {
    for (color& pixel : m_pixels)
       pixel = m_fill_color;
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::screen<string_type>::clear() -> void
+template<oof::std_string_type string_type>
+auto oof::screen<string_type>::clear() -> void
 {
    for (cell<string_type>& cell : *this)
       cell = m_background;
 }
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::draw_state<string_type>::write_sequence(
+template<oof::std_string_type string_type>
+auto oof::detail::draw_state<string_type>::write_sequence(
    std::vector<sequence_variant_type>& sequence_buffer,
    const cell_type& target_cell_state,
    const std::optional<std::reference_wrapper<const cell_type>>& old_cell_state,
@@ -1109,8 +1109,8 @@ auto cvtsw::detail::draw_state<string_type>::write_sequence(
 
 
 
-template<cvtsw::std_string_type string_type>
-auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
+template<oof::std_string_type string_type>
+auto oof::detail::draw_state<string_type>::is_position_sequence_necessary(
    const cell_pos& target_pos
 ) const -> bool
 {
@@ -1133,8 +1133,8 @@ auto cvtsw::detail::draw_state<string_type>::is_position_sequence_necessary(
 }
 
 
-template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
-auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_type
+template<oof::std_string_type string_type, oof::sequence_c sequence_type>
+auto oof::get_string_from_sequence(const sequence_type& sequence) -> string_type
 {
    string_type result{};
    write_sequence_into_string(result, sequence);
@@ -1142,7 +1142,7 @@ auto cvtsw::get_string_from_sequence(const sequence_type& sequence) -> string_ty
 }
 
 
-constexpr auto cvtsw::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
+constexpr auto oof::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
 {
    return cell<std::wstring>{
       .m_letter = L'▀',
@@ -1154,112 +1154,112 @@ constexpr auto cvtsw::detail::get_pixel_background(const color& fill_color) -> c
 }
 
 
-cvtsw::fg_rgb_color_sequence::operator std::string() const{
+oof::fg_rgb_color_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::fg_index_color_sequence::operator std::string() const{
+oof::fg_index_color_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::set_index_color_sequence::operator std::string() const{
+oof::set_index_color_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::bg_rgb_color_sequence::operator std::string() const{
+oof::bg_rgb_color_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::bg_index_color_sequence::operator std::string() const{
+oof::bg_index_color_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::underline_sequence::operator std::string() const{
+oof::underline_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::bold_sequence::operator std::string() const{
+oof::bold_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::position_sequence::operator std::string() const{
+oof::position_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::hposition_sequence::operator std::string() const{
+oof::hposition_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::vposition_sequence::operator std::string() const{
+oof::vposition_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::move_left_sequence::operator std::string() const{
+oof::move_left_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::move_right_sequence::operator std::string() const{
+oof::move_right_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::move_up_sequence::operator std::string() const{
+oof::move_up_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::move_down_sequence::operator std::string() const{
+oof::move_down_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::char_sequence::operator std::string() const{
+oof::char_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::wchar_sequence::operator std::string() const{
+oof::wchar_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::reset_sequence::operator std::string() const{
+oof::reset_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::clear_screen_sequence::operator std::string() const{
+oof::clear_screen_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
-cvtsw::fg_rgb_color_sequence::operator std::wstring() const{
+oof::fg_rgb_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::fg_index_color_sequence::operator std::wstring() const{
+oof::fg_index_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::set_index_color_sequence::operator std::wstring() const{
+oof::set_index_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::bg_rgb_color_sequence::operator std::wstring() const{
+oof::bg_rgb_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::bg_index_color_sequence::operator std::wstring() const{
+oof::bg_index_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::underline_sequence::operator std::wstring() const{
+oof::underline_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::bold_sequence::operator std::wstring() const{
+oof::bold_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::position_sequence::operator std::wstring() const{
+oof::position_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::hposition_sequence::operator std::wstring() const{
+oof::hposition_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::vposition_sequence::operator std::wstring() const{
+oof::vposition_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::move_left_sequence::operator std::wstring() const{
+oof::move_left_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::move_right_sequence::operator std::wstring() const{
+oof::move_right_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::move_up_sequence::operator std::wstring() const{
+oof::move_up_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::move_down_sequence::operator std::wstring() const{
+oof::move_down_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::char_sequence::operator std::wstring() const{
+oof::char_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::wchar_sequence::operator std::wstring() const{
+oof::wchar_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::reset_sequence::operator std::wstring() const{
+oof::reset_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
-cvtsw::clear_screen_sequence::operator std::wstring() const{
+oof::clear_screen_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
 

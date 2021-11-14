@@ -1,7 +1,7 @@
 #include "doctest.h"
 
 #include "../oof.h"
-using namespace cvtsw;
+using namespace oof;
 
 
 TEST_CASE("cell_pos")

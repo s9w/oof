@@ -1,8 +1,5 @@
 #include "snow_demo.h"
 
-#include "../oof.h"
-using namespace cvtsw;
-
 #include "tools.h"
 
 
@@ -30,7 +27,7 @@ namespace
 auto draw_partial_snowflake(
    const double brightness,
    const double ratio,
-   pixel_screen& px,
+   oof::pixel_screen& px,
    const int column,
    const int row
 ) -> void
@@ -41,15 +38,15 @@ auto draw_partial_snowflake(
    const uint8_t alpha = get_int<uint8_t>(ratio * 255.0);
    const s9w::srgba_u snow_color{ component, component, component, alpha };
 
-   color& target = px.get_color(column, row);
+   oof::color& target = px.get_color(column, row);
    const s9w::srgb_u blend_result = s9w::blend(std::bit_cast<s9w::srgb_u>(target), snow_color);
-   target = std::bit_cast<color>(blend_result);
+   target = std::bit_cast<oof::color>(blend_result);
 }
 
 
 auto draw_snowflake(
    const snowflake& flake,
-   pixel_screen& px
+   oof::pixel_screen& px
 ) -> void
 {
    constexpr int min_brightness = 50;
@@ -71,7 +68,7 @@ auto snow_demo() -> void
    // constexpr int width = 60;
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
-   pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };
+   oof::pixel_screen px{ width, height, 0, 0, oof::color{0, 0, 0} };
 
    std::vector<stick_state> neigh(width*height, stick_state::no_stick);
    for(int column=0; column<width; ++column)
@@ -88,7 +85,7 @@ auto snow_demo() -> void
       for(int row=0; row<height; ++row){
          for (int column = 0; column < width; ++column){
             const double height_progress = 1.0 * row / (height - 1);
-            const color bg_color{
+            const oof::color bg_color{
                get_int<uint8_t>(30*height_progress),
                get_int<uint8_t>(30*height_progress),
                get_int<uint8_t>(100*height_progress)

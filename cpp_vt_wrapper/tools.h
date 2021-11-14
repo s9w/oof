@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../oof.h"
-using namespace cvtsw;
 
 #include <cmath>
 #include <string>
@@ -100,9 +99,9 @@ auto remove_from_vector(
 }
 
 
-inline auto get_random_color(s9w::rng_state& rng) -> color
+inline auto get_random_color(s9w::rng_state& rng) -> oof::color
 {
-   return color{
+   return oof::color{
       static_cast<uint8_t>(rng.get_int(0, 255)),
       static_cast<uint8_t>(rng.get_int(0, 255)),
       static_cast<uint8_t>(rng.get_int(0, 255))

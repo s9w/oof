@@ -4,9 +4,6 @@
 
 #include "tools.h"
 
-#include "../oof.h"
-using namespace cvtsw;
-
 namespace{
    s9w::rng_state rng{1};
    constexpr double two_pi = 2.0 * std::numbers::pi_v<double>;
@@ -102,7 +99,7 @@ namespace{
    template<typename T>
    auto make_glitter(
       const double dt,
-      const pixel_screen& canvas,
+      const oof::pixel_screen& canvas,
       const T& r,
       std::vector<particle>& glitter
    ) -> void
@@ -130,7 +127,7 @@ namespace{
       );
    }
 
-   auto get_new_big_rocket(const pixel_screen& canvas) -> big_rocket
+   auto get_new_big_rocket(const oof::pixel_screen& canvas) -> big_rocket
    {
       const double x = rng.get_real(10.0, canvas.get_width() - 10.0);
       const double y = canvas.get_height();
@@ -148,7 +145,7 @@ auto fireworks_demo() -> void
 {
    s9w::ivec2 dim = get_screen_cell_dimensions();
    constexpr double gravity = 20.0;
-   pixel_screen canvas(dim[0], 2 * dim[1], 0, 0, color{});
+   oof::pixel_screen canvas(dim[0], 2 * dim[1], 0, 0, oof::color{});
    timer timer;
 
    std::vector<small_rocket> small_rockets;
@@ -237,7 +234,7 @@ auto fireworks_demo() -> void
             faded_color.l *= intensity_factor;
             glitter_color = s9w::convert_color<s9w::srgb_u>(faded_color);
          }
-         canvas.get_color(part.m_column, part.m_row) = std::bit_cast<color>(glitter_color);
+         canvas.get_color(part.m_column, part.m_row) = std::bit_cast<oof::color>(glitter_color);
       }
 
       // Printing, timing; FPS; resizing
@@ -249,8 +246,8 @@ auto fireworks_demo() -> void
 
          const s9w::ivec2 new_dim = get_screen_cell_dimensions();
          if (new_dim != dim) {
-            fast_print(std::string(clear_screen()));
-            canvas = pixel_screen(new_dim[0], 2 * new_dim[1], 0, 0, color{});
+            fast_print(std::string(oof::clear_screen()));
+            canvas = oof::pixel_screen(new_dim[0], 2 * new_dim[1], 0, 0, oof::color{});
             dim = new_dim;
             glitter.clear();
          }

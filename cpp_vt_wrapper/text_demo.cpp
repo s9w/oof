@@ -2,8 +2,6 @@
 
 #include <iostream>
 
-#include "../oof.h"
-using namespace cvtsw;
 #include "tools.h"
 
 namespace
@@ -44,12 +42,12 @@ namespace
       auto get_letter_color(
          const int i,
          const int current_index
-      ) const -> color
+      ) const -> oof::color
       {
          const double relative_index = i - current_index;
          const std::optional<size_t> zone_index = m_zones.get_zone(relative_index);
          if (zone_index.has_value() == false)
-            return color{};
+            return oof::color{};
          constexpr auto get_s9w_color = [](const size_t zone_index_v, const double x) {
             constexpr s9w::srgb_u yellow{ 255, 219, 89 };
             constexpr s9w::srgb_u red{ 255, 0, 0 };
@@ -57,11 +55,11 @@ namespace
             if (zone_index_v == 2) return s9w::mix(yellow, red, x);
             return yellow;
          };
-         return std::bit_cast<color>(get_s9w_color(*zone_index, *m_zones.get_progress(relative_index)));
+         return std::bit_cast<oof::color>(get_s9w_color(*zone_index, *m_zones.get_progress(relative_index)));
       }
 
       auto write(
-         screen<std::string>& scr,
+         oof::screen<std::string>& scr,
          const double seconds
       ) -> void
       {
@@ -74,7 +72,7 @@ namespace
             scr.get_cell(column, line).m_letter = m_string[i];
             const int format_index = std::clamp(drawn_letters - 1 - i, 0, 4);
 
-            cell_format format{.fg_color = get_letter_color(i, drawn_letters)};
+            oof::cell_format format{.fg_color = get_letter_color(i, drawn_letters)};
             if (m_bold_states[i] == bold_state::bold)
                format.m_bold = true;
             scr.get_cell(column, line).m_format = format;
@@ -104,7 +102,7 @@ auto text_demo() -> void
    paras.emplace_back("To crush the rebellion once and for all, the EMPIRE is constructing a sinister new battle station. Powerful enough to destroy an entire planet, its completion spells certain doom for the champions of freedom.");
    paragraph_writer writer(std::move(paras));
    
-   screen scr{ 34, 30, 0, 0, ' ' };
+   oof::screen scr{ 34, 30, 0, 0, ' ' };
    timer timer;
    while (true) {
       scr.clear();

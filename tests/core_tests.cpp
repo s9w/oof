@@ -1,10 +1,10 @@
 #include "doctest.h"
 
 #include "../oof.h"
-using namespace cvtsw;
+using namespace oof;
 
 namespace {
-   template<cvtsw::sequence_c sequence_type>
+   template<oof::sequence_c sequence_type>
    auto get_correct_size(const sequence_type& sequence) -> size_t {
       using string_type = std::conditional_t<std::is_same_v<sequence_type, wchar_sequence>, std::wstring, std::string>;
       string_type s;

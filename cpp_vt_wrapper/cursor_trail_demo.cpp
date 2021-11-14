@@ -1,8 +1,5 @@
 #include "cursor_trail_demo.h"
 
-#include "../oof.h"
-using namespace cvtsw;
-
 #include "tools.h"
 
 
@@ -71,12 +68,12 @@ namespace {
    }
 
    // This might be overkill, but this correctly dims the lightness in an appropriate (non-sRGB) colorspace
-   auto get_faded_color(const color& col, const double fade_amount) -> color{
-      if (col == color{})
-         return color{};
+   auto get_faded_color(const oof::color& col, const double fade_amount) -> oof::color{
+      if (col == oof::color{})
+         return oof::color{};
       s9w::oklab_d okl = s9w::convert_color<s9w::oklab_d>(std::bit_cast<s9w::srgb_u>(col));
       okl.L = std::clamp(okl.L - fade_amount, 0.0, 1.0);
-      return std::bit_cast<color>(s9w::convert_color<s9w::srgb_u>(okl));
+      return std::bit_cast<oof::color>(s9w::convert_color<s9w::srgb_u>(okl));
    }
 
    auto get_draw_color(const double time) -> s9w::srgb_u {
@@ -96,7 +93,7 @@ auto cursor_trail_demo() -> void
    const s9w::ivec2 canvas_dimensions = canvas_pixel_size / halfline_font_pixel_size;
 
    const RECT window_rect = get_window_rect();
-   pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1], 0, 0, color{});
+   oof::pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1], 0, 0, oof::color{});
    timer timer;
    double fade_amount = 0.0;
 
@@ -104,7 +101,7 @@ auto cursor_trail_demo() -> void
       // Fading
       fade_amount += timer.get_dt();
       if (fade_amount >= 0.01) {
-         for (color& col : canvas)
+         for (oof::color& col : canvas)
             col = get_faded_color(col, fade_amount);
          fade_amount = 0.0;
       }
@@ -123,7 +120,7 @@ auto cursor_trail_demo() -> void
             const s9w::srgb_u effective_brush_color = get_sdf_intensity(circle_sdf) * draw_color;
             const s9w::srgb_u canvas_color = std::bit_cast<s9w::srgb_u>(canvas.get_color(column, halfline));
             const s9w::srgb_u result_color = get_max_color(canvas_color, effective_brush_color);
-            canvas.get_color(column, halfline) = std::bit_cast<color>(result_color);
+            canvas.get_color(column, halfline) = std::bit_cast<oof::color>(result_color);
          }
       }
 

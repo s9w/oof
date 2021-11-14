@@ -1,7 +1,7 @@
 #include  "smoothness_test.h"
 
 #include "../oof.h"
-using namespace cvtsw;
+using namespace oof;
 
 #include <cstdint>
 #include <string>
