@@ -37,6 +37,7 @@ auto radar_demo() -> void
    const double radar_radius = radar_width / 2.0 - 5.0;
 
    timer timer;
+   std::wstring string_buffer;
    while(true){
       { // Randomly fading pixels to black
          const int pixel_count = px.get_height() * px.get_width();
@@ -60,7 +61,8 @@ auto radar_demo() -> void
       }
       
       timer.mark_frame();
-      fast_print(px.get_string());
+      px.write_string(string_buffer);
+      fast_print(string_buffer);
       if(const auto fps = timer.get_fps(); fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));
    }

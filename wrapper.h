@@ -90,6 +90,8 @@ namespace cvtsw
    template<cvtsw::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
+   [[nodiscard]] auto get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t;
+
    template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
    [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence) -> string_type;
 
@@ -146,6 +148,7 @@ namespace cvtsw
       [[nodiscard]] auto get_cell(const int column, const int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
+      [[nodiscard]] auto write_string(string_type& buffer) const -> void;
       auto write_into(const string_type& text, const int column, const int line, const cell_format& formatting) -> void;
 
       // Override all cells with the background state
@@ -188,6 +191,7 @@ namespace cvtsw
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
       [[nodiscard]] auto get_string() const -> std::wstring;
+      [[nodiscard]] auto write_string(std::wstring& buffer) const -> void;
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
 
@@ -203,6 +207,7 @@ namespace cvtsw
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
+      auto compute_result() const -> void;
    };
 
    struct fg_rgb_color_sequence {
@@ -299,6 +304,9 @@ namespace cvtsw
    namespace detail
    {
       [[nodiscard]] constexpr auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
+
+      template<cvtsw::std_string_type string_type>
+      [[nodiscard]] auto write_sequence_string_no_reserve(const std::vector<sequence_variant_type>& sequences, string_type& target) -> void;
 
       template<cvtsw::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
@@ -506,7 +514,7 @@ auto cvtsw::detail::write_ints_into_string(string_type& target, const T& first, 
 }
 
 
-// Instantiated by get_string_from_sequences()
+// Instantiated by write_sequence_string_no_reserve()
 template<cvtsw::std_string_type string_type, cvtsw::sequence_c sequence_type>
 auto cvtsw::write_sequence_into_string(
    string_type& target,
@@ -723,9 +731,25 @@ template<cvtsw::std_string_type string_type>
 auto cvtsw::screen<string_type>::get_string() const -> string_type
 {
    this->update_sequence_buffer();
-   string_type result = get_string_from_sequences<string_type>(m_sequence_buffer);
+   string_type result = ::cvtsw::get_string_from_sequences<string_type>(m_sequence_buffer);
    m_old_cells = m_cells;
    return result;
+}
+
+
+template<cvtsw::std_string_type string_type>
+auto cvtsw::screen<string_type>::write_string(string_type& buffer) const -> void
+{
+   this->update_sequence_buffer();
+
+   // Reserve if the string buffer is still empty (on the first call)
+   if (buffer.empty())
+      buffer.reserve(::cvtsw::get_string_reserve_size(m_sequence_buffer));
+
+   buffer.clear();
+
+   ::cvtsw::detail::write_sequence_string_no_reserve(m_sequence_buffer, buffer);
+   m_old_cells = m_cells;
 }
 
 
@@ -766,23 +790,39 @@ template struct cvtsw::screen<std::string>;
 template struct cvtsw::screen<std::wstring>;
 
 
+auto cvtsw::get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t
+{
+   size_t reserve_size{};
+   for (const sequence_variant_type& sequence : sequences)
+      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
+   return reserve_size;
+}
+
+
 // Instantiated by cvtsw::screen<string_type>::get_string()
+template<cvtsw::std_string_type string_type>
+auto cvtsw::detail::write_sequence_string_no_reserve(
+   const std::vector<sequence_variant_type>& sequences,
+   string_type& target
+) -> void
+{
+   for (const sequence_variant_type& sequence : sequences)
+      std::visit([&](const auto& alternative) { write_sequence_into_string(target, alternative);  }, sequence);
+}
+
+
 template<cvtsw::std_string_type string_type>
 auto cvtsw::get_string_from_sequences(
    const std::vector<sequence_variant_type>& sequences
 ) -> string_type
 {
-   size_t reserve_size{};
-   for (const sequence_variant_type& sequence : sequences)
-      std::visit([&](const auto& alternative) { reserve_size += detail::get_sequence_string_size(alternative); }, sequence);
-
    string_type result_str;
-   result_str.reserve(reserve_size);
-   for (const sequence_variant_type& sequence : sequences)
-      std::visit([&](const auto& alternative) { write_sequence_into_string(result_str, alternative);  }, sequence);
-
+   result_str.reserve(::cvtsw::get_string_reserve_size(sequences));
+   ::cvtsw::detail::write_sequence_string_no_reserve(sequences, result_str);
    return result_str;
 }
+template auto cvtsw::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::string;
+template auto cvtsw::get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> std::wstring;
 
 
 auto cvtsw::position(const int line, const int column) -> position_sequence {
@@ -839,7 +879,7 @@ auto cvtsw::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequ
 
 
 auto cvtsw::fg_color(const color& col) -> fg_rgb_color_sequence {
-   return fg_rgb_color_sequence{ .m_color=col };
+   return fg_rgb_color_sequence{ col };
 }
 
 
@@ -927,7 +967,7 @@ auto cvtsw::pixel_screen::get_screen_ref() -> screen<std::wstring>&
 }
 
 
-auto cvtsw::pixel_screen::get_string() const -> std::wstring
+auto cvtsw::pixel_screen::compute_result() const -> void
 {
    int halfline_top = (m_origin_halfline % 2 == 0) ? 0 : -1;
    int halfline_bottom = halfline_top + 1;
@@ -941,8 +981,20 @@ auto cvtsw::pixel_screen::get_string() const -> std::wstring
       halfline_top += 2;
       halfline_bottom += 2;
    }
+}
 
+
+auto cvtsw::pixel_screen::get_string() const -> std::wstring
+{
+   compute_result();
    return m_screen.get_string();
+}
+
+
+auto cvtsw::pixel_screen::write_string(std::wstring& buffer) const -> void
+{
+   compute_result();
+   m_screen.write_string(buffer);
 }
 
 
