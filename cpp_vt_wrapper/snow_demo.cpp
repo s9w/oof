@@ -1,6 +1,6 @@
 #include "snow_demo.h"
 
-#include "../wrapper.h"
+#include "../oof.h"
 using namespace cvtsw;
 
 #include "tools.h"
@@ -67,7 +67,8 @@ auto draw_snowflake(
 
 auto snow_demo() -> void
 {
-   constexpr int width = 60;
+   const int width = get_screen_cell_dimensions()[0];
+   // constexpr int width = 60;
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
    pixel_screen px{ width, height, 0, 0, color{0, 0, 0} };

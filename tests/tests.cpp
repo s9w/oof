@@ -4,7 +4,7 @@
 #include "doctest.h"
 
 #define CM_IMPL
-#include "../wrapper.h"
+#include "../oof.h"
 
 #include "perf_tests.h"
 

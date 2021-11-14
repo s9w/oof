@@ -4,7 +4,7 @@
 
 #include "tools.h"
 
-#include "../wrapper.h"
+#include "../oof.h"
 using namespace cvtsw;
 
 namespace{
@@ -177,7 +177,7 @@ auto fireworks_demo() -> void
       for (rocket& r : small_rockets){
          constexpr double drag_constant = 0.1;
          const double v = s9w::get_length(r.m_velocity);
-         const double F_drag = v * v * dt * drag_constant; // drag ~ v²
+         const double F_drag = v * v * dt * drag_constant; // drag ~ vï¿½
          const double speed_change = F_drag / r.m_mass; // F=m*a <=> a=F/m
          r.m_velocity -= s9w::get_normalized(r.m_velocity) * speed_change;
       }
