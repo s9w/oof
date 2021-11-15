@@ -492,7 +492,7 @@ auto oof::operator<<(stream_type& os, const sequence_type& sequence) -> stream_t
 }
 
 
-#ifdef CM_IMPL
+#ifdef OOF_IMPL
 
 // Instantiated by write_ints_into_string()
 template<oof::std_string_type string_type, std::integral int_type>
@@ -1292,4 +1292,4 @@ oof::cursor_visibility_sequence::operator std::wstring() const {
    return get_string_from_sequence<std::wstring>(*this);
 }
 
-#endif
+#endif // OOF_IMPL
