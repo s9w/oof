@@ -63,6 +63,8 @@ TEST_CASE("get_sequence_string_size")
    CHECK(has_correct_size(underline_sequence{false}));
    CHECK(has_correct_size(underline_sequence{true}));
    CHECK(has_correct_size(bold_sequence{true}));
+   CHECK(has_correct_size(cursor_visibility_sequence{false}));
+   CHECK(has_correct_size(cursor_visibility_sequence{true}));
    CHECK(has_correct_size(move_left_sequence{1}));
    CHECK(has_correct_size(move_right_sequence{11}));
    CHECK(has_correct_size(fg_rgb_color_sequence{ color{10, 110, 6} }));

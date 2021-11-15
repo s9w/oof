@@ -30,6 +30,7 @@ namespace oof
    struct char_sequence;
    struct wchar_sequence;
    struct reset_sequence;
+   struct cursor_visibility_sequence;
    struct clear_screen_sequence;
 
    // Generators of sequences
@@ -47,6 +48,7 @@ namespace oof
 
    // Note that bold is not supported by all consoles, see readme
    [[nodiscard]] auto bold(const bool new_value = true)          -> bold_sequence;
+   [[nodiscard]] auto cursor_visibility(const bool new_value)    -> cursor_visibility_sequence;
    [[nodiscard]] auto reset_formatting()                         -> reset_sequence;
    [[nodiscard]] auto clear_screen()                             -> clear_screen_sequence;
 
@@ -74,7 +76,7 @@ namespace oof
    using sequence_variant_type = std::variant<
       fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, set_index_color_sequence,
       position_sequence, hposition_sequence, vposition_sequence,
-      underline_sequence, bold_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence,
+      underline_sequence, bold_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence, cursor_visibility_sequence,
       move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence
    >;
 
@@ -242,6 +244,11 @@ namespace oof
       operator std::wstring() const;
    };
    struct bold_sequence {
+      bool m_bold;
+      operator std::string() const;
+      operator std::wstring() const;
+   };
+   struct cursor_visibility_sequence {
       bool m_bold;
       operator std::string() const;
       operator std::wstring() const;
@@ -451,6 +458,10 @@ template<oof::sequence_c sequence_type>
       {
          reserve_size += 1;
       }
+      else if constexpr (is_any_of<sequence_type, cursor_visibility_sequence>)
+      {
+         reserve_size += 3;
+      }
       else if constexpr (is_any_of<sequence_type, move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence>)
       {
          reserve_size += get_int_param_str_length(sequence.m_amount);
@@ -569,6 +580,12 @@ auto oof::write_sequence_into_string(
       {
          detail::write_ints_into_string(target, sequence.m_bold ? 1 : 22);
          target += static_cast<char_type>('m');
+      }
+      else if constexpr (std::is_same_v<sequence_type, cursor_visibility_sequence>)
+      {
+         target += static_cast<char_type>('?');
+         detail::write_ints_into_string(target, 25);
+         target += static_cast<char_type>(sequence.m_bold ? 'h' : 'l');
       }
       else if constexpr (std::is_same_v<sequence_type, position_sequence>)
       {
@@ -933,6 +950,12 @@ auto oof::bold(const bool new_value) -> bold_sequence
 }
 
 
+auto oof::cursor_visibility(const bool new_value) -> cursor_visibility_sequence
+{
+   return cursor_visibility_sequence{ new_value };
+}
+
+
 auto oof::reset_formatting() -> reset_sequence {
    return reset_sequence{};
 }
@@ -1208,6 +1231,9 @@ oof::reset_sequence::operator std::string() const{
 oof::clear_screen_sequence::operator std::string() const{
    return get_string_from_sequence<std::string>(*this);
 }
+oof::cursor_visibility_sequence::operator std::string() const {
+   return get_string_from_sequence<std::string>(*this);
+}
 oof::fg_rgb_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
@@ -1260,6 +1286,9 @@ oof::reset_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
 oof::clear_screen_sequence::operator std::wstring() const{
+   return get_string_from_sequence<std::wstring>(*this);
+}
+oof::cursor_visibility_sequence::operator std::wstring() const {
    return get_string_from_sequence<std::wstring>(*this);
 }
 
