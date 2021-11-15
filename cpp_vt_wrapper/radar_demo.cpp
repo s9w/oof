@@ -6,6 +6,8 @@ static s9w::rng_state rng;
 
 namespace
 {
+   constexpr double two_pi = 2.0 * std::numbers::pi_v<double>;
+
    // TODO replace fading globally with difference blending in s9w_color
    auto get_faded(const oof::color& col) -> oof::color {
       constexpr int fade_amount = 20;
@@ -19,7 +21,7 @@ namespace
    auto nonstupid_atan2(const double y, const double x){
       double result = std::atan2(y, x);
       if (result < 0.0)
-         result += 2.0 * std::numbers::pi_v<double>;
+         result += two_pi;
       return result;
    }
 } // namespace {}
@@ -47,8 +49,8 @@ auto radar_demo() -> void
       }
 
       // Radar arm
-      constexpr double speed = 3.0;
-      const double radar_phi = std::fmod(speed * timer.get_seconds_since_start(), 2.0 * std::numbers::pi_v<double>);
+      constexpr double seconds_for_rotation = 2.0;
+      const double radar_phi = std::fmod(timer.get_seconds_since_start() * two_pi / seconds_for_rotation, two_pi);
       for(int y=0; y< radar_width; ++y){
          for (int x = 0; x < radar_width; ++x){
             const s9w::dvec2 rel_pos = s9w::dvec2{ x, y } - center + half_pixel_offset;

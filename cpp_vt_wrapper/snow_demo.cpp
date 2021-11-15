@@ -64,8 +64,8 @@ auto draw_snowflake(
 
 auto snow_demo() -> void
 {
-   const int width = get_screen_cell_dimensions()[0];
-   // constexpr int width = 60;
+   //const int width = get_screen_cell_dimensions()[0];
+    constexpr int width = 60;
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
    oof::pixel_screen px{ width, height, 0, 0, oof::color{0, 0, 0} };
@@ -126,7 +126,7 @@ auto snow_demo() -> void
       }
 
       // New snow
-      if(rng.get_flip(20.0 * timer.get_dt())){
+      if(rng.get_flip(0.5 * px.get_width() * timer.get_dt())){
          snowflakes.push_back(
             snowflake{
                .m_pos = flake_pos{

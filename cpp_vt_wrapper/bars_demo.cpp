@@ -1,47 +1,58 @@
 ﻿#include "bars_demo.h"
 
+#include <algorithm>
+#include <chrono>
+
 #include "../oof.h"
-using namespace oof;
-#include "tools.h"
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h> // for WriteConsole
 
 
 namespace {
 
+   auto fast_print(const std::wstring& sss) -> void {
+      HANDLE const output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+      const auto char_count = static_cast<DWORD>(sss.length());
+      WriteConsoleW(output_handle, sss.c_str(), char_count, nullptr, nullptr);
+   }
+
+
    auto get_color_component(
       const int segment_index,
       const double x
-   ) -> uint8_t
+   ) -> double
    {
       const double lower = segment_index;
       const double upper = lower + 1.0;
       const double clamped_x = std::clamp(x, lower, upper);
-      return 100ui8 + get_int<uint8_t>((clamped_x - lower) * 155.0);
+      return 100.0 + std::round((clamped_x - lower) * 155.0);
    }
 
+
    struct bar_widget{
+      double m_bar_value{};
+
+   private:
       int m_bar_start_column{};
       int m_bar_width{};
-      mutable screen<std::wstring> m_screen;
-      double m_progress{};
-
+      mutable oof::screen<std::wstring> m_screen;
+      
+   public:
       bar_widget(const std::wstring& description, const int bar_width, const int line)
          : m_bar_start_column(static_cast<int>(description.size()) + 2)
          , m_bar_width(bar_width)
-         , m_screen(m_bar_start_column + bar_width, 1, 0, line, L'━')
+         , m_screen(m_bar_start_column + bar_width, 1, 1, line, L'━')
       {
-         m_screen.write_into(description+L": ", 0, 0, cell_format{.fg_color=color{255, 100, 100}});
-      }
-
-      auto set_value(const double value)
-      {
-         m_progress = value;
+         m_screen.write_into(description+L": ", 0, 0, oof::cell_format{.fg_color=oof::color{255, 100, 100}});
       }
 
       auto print() const -> void
       {
          for (int i = 0; i < m_bar_width; ++i) {
-            const uint8_t component = get_color_component(i, m_progress * m_bar_width);
-            m_screen.get_cell(i+m_bar_start_column, 0).m_format.fg_color = color{ component, component, component };
+            const uint8_t component = static_cast<uint8_t>(get_color_component(i, m_bar_value));
+            m_screen.get_cell(i+m_bar_start_column, 0).m_format.fg_color = oof::color{ component, component, component };
          }
          fast_print(m_screen.get_string());
       }
@@ -50,14 +61,17 @@ namespace {
 
 
 auto bars_demo() -> void{
-   const timer timer;
-   bar_widget linear(L"Linear", 20, 0);
-   bar_widget sine_wave(L"Sine wave", 20, 1);
+   constexpr int bar_length = 20;
+   bar_widget linear(L"Linear", bar_length, 1);
+   bar_widget sine_wave(L"Sine wave", bar_length, 2);
    
+   const auto t0 = std::chrono::high_resolution_clock::now();
    while (true) {
-      const double t = timer.get_seconds_since_start();
-      linear.set_value(std::fmod(0.1 * t, 1.0));
-      sine_wave.set_value(0.5 + 0.5 * std::sin(t));
+      const std::chrono::duration<double> double_seconds = std::chrono::high_resolution_clock::now() - t0;
+      const double t = double_seconds.count();
+
+      linear.m_bar_value = std::fmod(2.0 * t, bar_length);
+      sine_wave.m_bar_value = 10.0 + 10.0 * std::sin(t);
 
       linear.print();
       sine_wave.print();
