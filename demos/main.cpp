@@ -33,6 +33,14 @@ auto enable_vt_mode() -> void
       std::terminate(); // error handling
 }
 
+auto my_error_function(
+   const char* msg
+) -> void
+{
+   std::cerr << std::format("ERROR: {}\n", msg);
+   std::terminate();
+}
+
 #include <format>
 
 int main()

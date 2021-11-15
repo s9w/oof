@@ -13,63 +13,72 @@ namespace oof
       friend constexpr auto operator==(const color&, const color&) -> bool = default;
    };
 
-   struct fg_rgb_color_sequence;
-   struct fg_index_color_sequence;
+   // Necessary forward declarations
+   struct fg_rgb_color_sequence; struct fg_index_color_sequence;
+   struct bg_rgb_color_sequence;    struct bg_index_color_sequence;
    struct set_index_color_sequence;
-   struct bg_rgb_color_sequence;
-   struct bg_index_color_sequence;
-   struct underline_sequence;
-   struct bold_sequence;
-   struct position_sequence;
-   struct hposition_sequence;
-   struct vposition_sequence;
-   struct move_left_sequence;
-   struct move_right_sequence;
-   struct move_up_sequence;
-   struct move_down_sequence;
-   struct char_sequence;
-   struct wchar_sequence;
-   struct reset_sequence;
-   struct cursor_visibility_sequence;
-   struct clear_screen_sequence;
+   struct bold_sequence; struct cursor_visibility_sequence; struct underline_sequence;
+   struct position_sequence; struct hposition_sequence; struct vposition_sequence;
+   struct move_left_sequence; struct move_right_sequence; struct move_up_sequence; struct move_down_sequence;
+   struct char_sequence; struct wchar_sequence;
+   struct reset_sequence; struct clear_screen_sequence;
+   
 
-   // Generators of sequences
+   // Sets the foreground RGB color
    [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence;
    [[nodiscard]] auto fg_color(const color& col)                      -> fg_rgb_color_sequence;
+
+   // Sets the foreground indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
    [[nodiscard]] auto fg_color(const int index)                       -> fg_index_color_sequence;
 
+   // Sets the background RGB color
    [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence;
    [[nodiscard]] auto bg_color(const color& col)                      -> bg_rgb_color_sequence;
+
+   // Sets the background indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
    [[nodiscard]] auto bg_color(const int index)                       -> bg_index_color_sequence;
 
-   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
-   
+   // Sets the indexed color. Index must be in [1, 255].
+   [[nodiscard]] auto set_index_color(const int index, const color& col) -> auto;
+
+   // Sets the underline state of the console.
    [[nodiscard]] auto underline(const bool new_value = true)     -> underline_sequence;
 
-   // Note that bold is not supported by all consoles, see readme
+   // Sets the bold state of the console. Warning: Bold is not supported by all console, see readme
    [[nodiscard]] auto bold(const bool new_value = true)          -> bold_sequence;
+
+   // Sets cursor visibility state. Recommended to turn off before doing real-time displays
    [[nodiscard]] auto cursor_visibility(const bool new_value)    -> cursor_visibility_sequence;
+
+   // Resets foreground- and background color
    [[nodiscard]] auto reset_formatting()                         -> reset_sequence;
+
+   // Clears the screen
    [[nodiscard]] auto clear_screen()                             -> clear_screen_sequence;
 
-   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
+   // Sets the cursor position. Zero-based
+   [[nodiscard]] auto position(const int line, const int column)->position_sequence;
    [[nodiscard]] auto vposition(const int line)                  -> vposition_sequence;
    [[nodiscard]] auto hposition(const int column)                -> hposition_sequence;
+
+   // Moves the cursor a certain amount
    [[nodiscard]] auto move_left(const int amount)                -> move_left_sequence;
    [[nodiscard]] auto move_right(const int amount)               -> move_right_sequence;
    [[nodiscard]] auto move_up(const int amount)                  -> move_up_sequence;
    [[nodiscard]] auto move_down(const int amount)                -> move_down_sequence;
+
+
+   using error_callback_type = void(*)(const char* msg);
+   inline error_callback_type error_callback = nullptr;
 
    template<typename T>
    concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
 
    template<typename T, typename variant_type>
    struct is_alternative : std::false_type {};
-
    template<typename T, typename ... variant_alternatives>
    struct is_alternative<T, std::variant<variant_alternatives...>>
       : std::disjunction<std::is_same<T, variant_alternatives>...> {};
-
    template<typename T, typename variant_type>
    constexpr bool is_alternative_v = is_alternative<T, variant_type>::value;
 
@@ -83,20 +92,21 @@ namespace oof
    template<typename T>
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
 
-   template<typename stream_type, oof::sequence_c sequence_type>
-   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
+   
 
    template<oof::std_string_type string_type, oof::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
+
+   template<oof::std_string_type string_type, oof::sequence_c sequence_type>
+   [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence)->string_type;
 
    template<oof::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
    [[nodiscard]] auto get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t;
 
-   template<oof::std_string_type string_type, oof::sequence_c sequence_type>
-   [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence) -> string_type;
 
+   
 
    struct cell_format {
       bool m_underline = false;
@@ -128,7 +138,6 @@ namespace oof
       std::vector<cell<string_type>> m_cells;
       mutable std::vector<cell<string_type>> m_old_cells;
       mutable std::vector<sequence_variant_type> m_sequence_buffer;
-      
 
    public:
       explicit screen(
@@ -211,6 +220,10 @@ namespace oof
       [[nodiscard]] auto get_line_height() const -> int;
       auto compute_result() const -> void;
    };
+
+
+   template<typename stream_type, oof::sequence_c sequence_type>
+   auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
 
    struct fg_rgb_color_sequence {
       color m_color;
@@ -310,6 +323,8 @@ namespace oof
 
    namespace detail
    {
+      auto error(const char* msg) -> void;
+
       [[nodiscard]] constexpr auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
       template<oof::std_string_type string_type>
@@ -641,11 +656,6 @@ auto oof::detail::get_index_color_seq_str(
    const set_index_color_sequence& sequence
 ) -> string_type
 {
-   if (sequence.m_index < 1 || sequence.m_index > 255) {
-      // TODO error
-      return string_type{};
-   }
-
    using char_type = typename string_type::value_type;
 
    string_type result;
@@ -780,7 +790,8 @@ auto oof::screen<string_type>::write_into(
    const int ending_column = column + static_cast<int>(text.size());
    if (ending_column >= m_width)
    {
-      // ERROR TODO
+      ::oof::detail::error("Trying to write_into() with a text that won't fit.");
+      return;
    }
    for (size_t i = 0; i < text.size(); ++i) {
       cell<string_type>& cell = m_cells[line * m_width + column + i];
@@ -902,6 +913,11 @@ auto oof::fg_color(const color& col) -> fg_rgb_color_sequence {
 
 auto oof::fg_color(const int index) -> fg_index_color_sequence
 {
+   if (index < 1 || index > 255)
+   {
+      ::oof::detail::error("Index must be in [1, 255]");
+      return fg_index_color_sequence{1};
+   }
    return fg_index_color_sequence{ index };
 }
 
@@ -909,8 +925,13 @@ auto oof::fg_color(const int index) -> fg_index_color_sequence
 auto oof::set_index_color(
    const int index,
    const color& col
-) -> set_index_color_sequence
+) -> auto
 {
+   if (index < 1 || index > 255)
+   {
+      ::oof::detail::error("Index must be in [1, 255]");
+      return set_index_color_sequence{ 1, col };
+   }
    return set_index_color_sequence{ index, col };
 }
 
@@ -934,6 +955,11 @@ auto oof::bg_color(const color& col) -> bg_rgb_color_sequence
 
 auto oof::bg_color(const int index) -> bg_index_color_sequence
 {
+   if (index < 1 || index > 255)
+   {
+      ::oof::detail::error("Index must be in [1, 255]");
+      return bg_index_color_sequence{ 1 };
+   }
    return bg_index_color_sequence{ index };
 }
 
@@ -1162,6 +1188,15 @@ auto oof::get_string_from_sequence(const sequence_type& sequence) -> string_type
    string_type result{};
    write_sequence_into_string(result, sequence);
    return result;
+}
+
+
+auto oof::detail::error(const char* msg) -> void
+{
+   if(error_callback != nullptr)
+   {
+      error_callback(msg);
+   }
 }
 
 
