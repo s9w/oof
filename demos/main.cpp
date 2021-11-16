@@ -1,9 +1,4 @@
 ﻿#include <iostream>
-#include <string>
-
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
 
 #include "tools.h"
 
@@ -15,24 +10,6 @@
 #include "fireworks_demo.h"
 
 
-auto enable_vt_mode() -> void
-{
-   HANDLE const handle = GetStdHandle(STD_OUTPUT_HANDLE);
-   if (handle == INVALID_HANDLE_VALUE)
-      std::terminate(); // error handling
-
-   DWORD dwMode = 0;
-   if (!GetConsoleMode(handle, &dwMode))
-      std::terminate(); // error handling
-
-   if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-      return; // VT mode is already enabled
-
-   dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-   if (!SetConsoleMode(handle, dwMode))
-      std::terminate(); // error handling
-}
-
 auto my_error_function(
    const char* msg
 ) -> void
@@ -41,24 +18,57 @@ auto my_error_function(
    std::terminate();
 }
 
-#include <format>
+auto print_choice(const char* desc)
+{
+   static int choice = 0;
+   std::cout << choice << ": " << oof::fg_color(oof::color{ 255, 100, 100 }) << desc << oof::reset_formatting() << "\n";
+   ++choice;
+}
 
 int main()
 {
+   oof::error_callback = my_error_function;
    enable_vt_mode();
    std::cout << oof::cursor_visibility(false) << oof::reset_formatting() << oof::clear_screen();
 
-   //[[maybe_unused]] std::string s = std::format("abc {}", std::string(reset_formatting()));
-   //s = reset_formatting();
-   
-    //bars_demo();
-   //text_demo();
+   int demo_choice = 0;
+   print_choice("Bars");
+   print_choice("Text crawl");
+   print_choice("Radar");
+   print_choice("Snow");
+   print_choice("Cursor trail");
+   print_choice("Fireworks");
 
-    radar_demo();
-    //snow_demo();
-    //cursor_trail_demo();
-   //fireworks_demo();
+   std::cout << "Choice: ";
+   std::cin >> demo_choice;
 
-    std::cout << oof::reset_formatting();
+   switch(demo_choice)
+   {
+   case 0:
+      std::cout << oof::clear_screen();
+      bars_demo();
+      break;
+   case 1:
+      text_demo();
+      break;
+   case 2:
+      radar_demo();
+      break;
+   case 3:
+      snow_demo();
+      break;
+   case 4:
+      std::cout << oof::clear_screen();
+      cursor_trail_demo();
+      break;
+   case 5:
+      fireworks_demo();
+      break;
+   default:
+      std::cout << "really clever\n";
+      break;
+   }
+
+   std::cout << oof::reset_formatting();
    return 0;
 }

@@ -45,14 +45,14 @@ namespace {
          , m_bar_width(bar_width)
          , m_screen(m_bar_start_column + bar_width, 1, 1, line, L'━')
       {
-         m_screen.write_into(description+L": ", 0, 0, oof::cell_format{.fg_color=oof::color{255, 100, 100}});
+         m_screen.write_into(description+L": ", 0, 0, oof::cell_format{.m_fg_color=oof::color{255, 100, 100}});
       }
 
       auto print() const -> void
       {
          for (int i = 0; i < m_bar_width; ++i) {
             const uint8_t component = static_cast<uint8_t>(get_color_component(i, m_bar_value));
-            m_screen.get_cell(i+m_bar_start_column, 0).m_format.fg_color = oof::color{ component, component, component };
+            m_screen.get_cell(i+m_bar_start_column, 0).m_format.m_fg_color = oof::color{ component, component, component };
          }
          fast_print(m_screen.get_string());
       }

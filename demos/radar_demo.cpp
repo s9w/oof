@@ -2,10 +2,12 @@
 
 #include "tools.h"
 
-static s9w::rng_state rng;
+
 
 namespace
 {
+   s9w::rng_state rng{static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count())};
+   
    constexpr double two_pi = 2.0 * std::numbers::pi_v<double>;
 
    // TODO replace fading globally with difference blending in s9w_color

@@ -17,6 +17,24 @@
 #include <windows.h>
 
 
+inline auto enable_vt_mode() -> void
+{
+   HANDLE const handle = GetStdHandle(STD_OUTPUT_HANDLE);
+   if (handle == INVALID_HANDLE_VALUE)
+      std::terminate(); // error handling
+
+   DWORD dwMode = 0;
+   if (!GetConsoleMode(handle, &dwMode))
+      std::terminate(); // error handling
+
+   if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+      return; // VT mode is already enabled
+
+   dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+   if (!SetConsoleMode(handle, dwMode))
+      std::terminate(); // error handling
+}
+
 template<typename char_type>
 auto fast_print(const std::basic_string<char_type>& sss) -> void {
    HANDLE const output_handle = GetStdHandle(STD_OUTPUT_HANDLE);

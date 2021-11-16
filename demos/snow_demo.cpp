@@ -5,7 +5,7 @@
 
 namespace
 {
-   s9w::rng_state rng{ 2 };
+   s9w::rng_state rng{static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count())};
 
    struct flake_pos{
       double m_column{};

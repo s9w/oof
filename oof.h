@@ -25,47 +25,45 @@ namespace oof
    
 
    // Sets the foreground RGB color
-   [[nodiscard]] auto fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence;
-   [[nodiscard]] auto fg_color(const color& col)                      -> fg_rgb_color_sequence;
+   [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
 
    // Sets the foreground indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-   [[nodiscard]] auto fg_color(const int index)                       -> fg_index_color_sequence;
+   [[nodiscard]] auto fg_color(const int index) -> fg_index_color_sequence;
 
    // Sets the background RGB color
-   [[nodiscard]] auto bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence;
-   [[nodiscard]] auto bg_color(const color& col)                      -> bg_rgb_color_sequence;
+   [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
 
    // Sets the background indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-   [[nodiscard]] auto bg_color(const int index)                       -> bg_index_color_sequence;
+   [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
 
    // Sets the indexed color. Index must be in [1, 255].
-   [[nodiscard]] auto set_index_color(const int index, const color& col) -> auto;
+   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
 
    // Sets the underline state of the console.
-   [[nodiscard]] auto underline(const bool new_value = true)     -> underline_sequence;
+   [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
 
    // Sets the bold state of the console. Warning: Bold is not supported by all console, see readme
-   [[nodiscard]] auto bold(const bool new_value = true)          -> bold_sequence;
+   [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
 
    // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-   [[nodiscard]] auto cursor_visibility(const bool new_value)    -> cursor_visibility_sequence;
+   [[nodiscard]] auto cursor_visibility(const bool new_value) -> cursor_visibility_sequence;
 
    // Resets foreground- and background color
-   [[nodiscard]] auto reset_formatting()                         -> reset_sequence;
+   [[nodiscard]] auto reset_formatting()  -> reset_sequence;
 
    // Clears the screen
-   [[nodiscard]] auto clear_screen()                             -> clear_screen_sequence;
+   [[nodiscard]] auto clear_screen() -> clear_screen_sequence;
 
    // Sets the cursor position. Zero-based
-   [[nodiscard]] auto position(const int line, const int column)->position_sequence;
-   [[nodiscard]] auto vposition(const int line)                  -> vposition_sequence;
-   [[nodiscard]] auto hposition(const int column)                -> hposition_sequence;
+   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
+   [[nodiscard]] auto vposition(const int line) -> vposition_sequence;
+   [[nodiscard]] auto hposition(const int column) -> hposition_sequence;
 
    // Moves the cursor a certain amount
-   [[nodiscard]] auto move_left(const int amount)                -> move_left_sequence;
-   [[nodiscard]] auto move_right(const int amount)               -> move_right_sequence;
-   [[nodiscard]] auto move_up(const int amount)                  -> move_up_sequence;
-   [[nodiscard]] auto move_down(const int amount)                -> move_down_sequence;
+   [[nodiscard]] auto move_left(const int amount) -> move_left_sequence;
+   [[nodiscard]] auto move_right(const int amount) -> move_right_sequence;
+   [[nodiscard]] auto move_up(const int amount) -> move_up_sequence;
+   [[nodiscard]] auto move_down(const int amount) -> move_down_sequence;
 
 
    using error_callback_type = void(*)(const char* msg);
@@ -93,16 +91,19 @@ namespace oof
    concept sequence_c = is_alternative_v<T, sequence_variant_type>;
 
    
-
+   // Writes a single sequence type into a string
    template<oof::std_string_type string_type, oof::sequence_c sequence_type>
    auto write_sequence_into_string(string_type& target, const sequence_type& sequence) -> void;
 
+   // Returns a sing from a sequence type
    template<oof::std_string_type string_type, oof::sequence_c sequence_type>
-   [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence)->string_type;
+   [[nodiscard]] auto get_string_from_sequence(const sequence_type& sequence) -> string_type;
 
+   // Returns a string from a vector of sequence types
    template<oof::std_string_type string_type>
    [[nodiscard]] auto get_string_from_sequences(const std::vector<sequence_variant_type>& sequences) -> string_type;
 
+   // Returns the exact size a string from this vector of sequence types
    [[nodiscard]] auto get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t;
 
 
@@ -111,8 +112,8 @@ namespace oof
    struct cell_format {
       bool m_underline = false;
       bool m_bold = false;
-      color fg_color{255, 255, 255};
-      color bg_color{0, 0, 0};
+      color m_fg_color{255, 255, 255};
+      color m_bg_color{0, 0, 0};
       friend constexpr auto operator==(const cell_format&, const cell_format&) -> bool = default;
    };
 
@@ -325,7 +326,7 @@ namespace oof
    {
       auto error(const char* msg) -> void;
 
-      [[nodiscard]] constexpr auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
+      [[nodiscard]] auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
       template<oof::std_string_type string_type>
       [[nodiscard]] auto write_sequence_string_no_reserve(const std::vector<sequence_variant_type>& sequences, string_type& target) -> void;
@@ -413,7 +414,7 @@ namespace oof
 template<oof::sequence_c sequence_type>
 [[nodiscard]] constexpr auto oof::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
 {
-   constexpr auto get_int_param_str_length = [](const int param) {
+   constexpr auto get_int_param_str_length = [](const int param) -> int {
       if (param < 10)  return 1;
       if (param < 100) return 2;
       else             return 3;
@@ -895,17 +896,6 @@ auto oof::move_down(const int amount) -> move_down_sequence
 }
 
 
-auto oof::fg_color(const int r, const int g, const int b) -> fg_rgb_color_sequence {
-   return fg_rgb_color_sequence{
-      .m_color = color{
-         static_cast<uint8_t>(r),
-         static_cast<uint8_t>(g),
-         static_cast<uint8_t>(b)
-      }
-   };
-}
-
-
 auto oof::fg_color(const color& col) -> fg_rgb_color_sequence {
    return fg_rgb_color_sequence{ col };
 }
@@ -925,7 +915,7 @@ auto oof::fg_color(const int index) -> fg_index_color_sequence
 auto oof::set_index_color(
    const int index,
    const color& col
-) -> auto
+) -> set_index_color_sequence
 {
    if (index < 1 || index > 255)
    {
@@ -933,17 +923,6 @@ auto oof::set_index_color(
       return set_index_color_sequence{ 1, col };
    }
    return set_index_color_sequence{ index, col };
-}
-
-
-auto oof::bg_color(const int r, const int g, const int b) -> bg_rgb_color_sequence {
-   return bg_rgb_color_sequence{
-      color{
-         static_cast<uint8_t>(r),
-         static_cast<uint8_t>(g),
-         static_cast<uint8_t>(b)
-      }
-   };
 }
 
 
@@ -1024,8 +1003,8 @@ auto oof::pixel_screen::compute_result() const -> void
    for (int line = 0; line < m_screen.get_height(); ++line) {
       for (int column = 0; column < m_screen.get_width(); ++column) {
          cell<std::wstring>& target_cell = m_screen.get_cell(column, line);
-         target_cell.m_format.fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : m_fill_color;
-         target_cell.m_format.bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : m_fill_color;
+         target_cell.m_format.m_fg_color = is_in(column, halfline_top) ? get_color(column, halfline_top) : m_fill_color;
+         target_cell.m_format.m_bg_color = is_in(column, halfline_bottom) ? get_color(column, halfline_bottom) : m_fill_color;
       }
       halfline_top += 2;
       halfline_bottom += 2;
@@ -1124,17 +1103,17 @@ auto oof::detail::draw_state<string_type>::write_sequence(
       return;
 
    if (m_format.has_value() == false) {
-      sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
-      sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+      sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.m_fg_color });
+      sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.m_bg_color });
       sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
       sequence_buffer.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
    }
    else {
       // Apply differences between console state and the target state
-      if (target_cell_state.m_format.fg_color != m_format->fg_color)
-         sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.fg_color });
-      if (target_cell_state.m_format.bg_color != m_format->bg_color)
-         sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.bg_color });
+      if (target_cell_state.m_format.m_fg_color != m_format->m_fg_color)
+         sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.m_fg_color });
+      if (target_cell_state.m_format.m_bg_color != m_format->m_bg_color)
+         sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.m_bg_color });
       if (target_cell_state.m_format.m_underline != m_format->m_underline)
          sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
       if (target_cell_state.m_format.m_bold != m_format->m_bold)
@@ -1200,13 +1179,13 @@ auto oof::detail::error(const char* msg) -> void
 }
 
 
-constexpr auto oof::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
+auto oof::detail::get_pixel_background(const color& fill_color) -> cell<std::wstring>
 {
    return cell<std::wstring>{
       .m_letter = L'▀',
       .m_format = {
-         .fg_color = fill_color,
-         .bg_color = fill_color
+         .m_fg_color = fill_color,
+         .m_bg_color = fill_color
       }
    };
 }

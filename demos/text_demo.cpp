@@ -13,12 +13,32 @@ namespace
    auto get_bold_state(const std::string& str) -> std::vector<bold_state>
    {
       std::vector<bold_state> bold_states(str.size(), bold_state::not_bold);
-      for (int i = 0; i < bold_states.size() - 1; ++i) {
-         if (std::isupper(str[i]) && std::isupper(str[i + 1]))
-            bold_states[i] = bold_state::bold;
+
+      const auto is_looking_for_start = [](const auto start_index) {return start_index == -1; };
+      const auto is_start_worthy = [](const char ch) {return std::isupper(ch); };
+      const auto is_end_worthy = [](const char ch) {
+         if (std::isupper(ch))
+            return false;
+         return ch != ' ';
+      };
+      const auto get_end_index = [&](const auto end_index) {return (str[end_index] == ' ') ? (end_index - 1) : end_index; };
+
+      ptrdiff_t bold_start = -1;
+      for (int i = 0; i < str.size(); ++i) {
+         if (is_looking_for_start(bold_start)){
+            if (is_start_worthy(str[i]))
+               bold_start = i;
+            continue;
+         }
+         if (is_end_worthy(str[i])) {
+            const int end_index = get_end_index(i - 1);
+            if ((end_index - bold_start) > 1){
+               for (auto j = bold_start; j <= end_index; ++j)
+                  bold_states[j] = bold_state::bold;
+            }
+            bold_start = -1;
+         }
       }
-      if (std::isupper(str.back()) && std::isupper(*(str.end()-1)))
-         bold_states.back() = bold_state::bold;
       return bold_states;
    }
 
@@ -72,9 +92,11 @@ namespace
             scr.get_cell(column, line).m_letter = m_string[i];
             const int format_index = std::clamp(drawn_letters - 1 - i, 0, 4);
 
-            oof::cell_format format{.fg_color = get_letter_color(i, drawn_letters)};
-            if (m_bold_states[i] == bold_state::bold)
+            oof::cell_format format{.m_fg_color = get_letter_color(i, drawn_letters)};
+            if (m_bold_states[i] == bold_state::bold) {
                format.m_bold = true;
+               format.m_underline = true;
+            }
             scr.get_cell(column, line).m_format = format;
 
             ++column;

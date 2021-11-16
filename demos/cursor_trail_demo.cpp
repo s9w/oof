@@ -5,7 +5,7 @@
 
 namespace {
 
-   s9w::rng_state rng;
+   s9w::rng_state rng{static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count())};
 
    // We're drawing "half" lines, so the relevant font size is halved in height
    auto get_halfline_font_pixel_size() -> s9w::ivec2
@@ -96,6 +96,7 @@ auto cursor_trail_demo() -> void
    oof::pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1], 0, 0, oof::color{});
    timer timer;
    double fade_amount = 0.0;
+   std::wstring string_buffer;
 
    while (true) {
       // Fading
@@ -110,23 +111,30 @@ auto cursor_trail_demo() -> void
 
       // Drawing of the circle with SDFs
       const s9w::dvec2 cursor_cell_pos = s9w::dvec2{ get_cursor_pixel_pos(window_rect) } / s9w::dvec2{ halfline_font_pixel_size };
-      for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
-         for (int column = 0; column < canvas.get_width(); ++column) {
-            const s9w::dvec2 cell_pos = s9w::dvec2{column, halfline} + s9w::dvec2{0.5};
+      if (cursor_cell_pos[0] < -5.0 || cursor_cell_pos[0] > canvas_dimensions[0] || cursor_cell_pos[1] < -5.0 || cursor_cell_pos[1] > canvas_dimensions[1])
+      {
+         string_buffer = std::wstring(oof::position(10, 20)) + std::wstring(oof::reset_formatting()) +  L"PLACE MOUSE INSIDE WINDOW";
+      }
+      else {
+         for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
+            for (int column = 0; column < canvas.get_width(); ++column) {
+               const s9w::dvec2 cell_pos = s9w::dvec2{ column, halfline } + s9w::dvec2{ 0.5 };
 
-            constexpr double circle_radius = 5.0;
-            const double circle_sdf = s9w::get_length(cell_pos - cursor_cell_pos) - circle_radius;
+               constexpr double circle_radius = 5.0;
+               const double circle_sdf = s9w::get_length(cell_pos - cursor_cell_pos) - circle_radius;
 
-            const s9w::srgb_u effective_brush_color = get_sdf_intensity(circle_sdf) * draw_color;
-            const s9w::srgb_u canvas_color = std::bit_cast<s9w::srgb_u>(canvas.get_color(column, halfline));
-            const s9w::srgb_u result_color = get_max_color(canvas_color, effective_brush_color);
-            canvas.get_color(column, halfline) = std::bit_cast<oof::color>(result_color);
+               const s9w::srgb_u effective_brush_color = get_sdf_intensity(circle_sdf) * draw_color;
+               const s9w::srgb_u canvas_color = std::bit_cast<s9w::srgb_u>(canvas.get_color(column, halfline));
+               const s9w::srgb_u result_color = get_max_color(canvas_color, effective_brush_color);
+               canvas.get_color(column, halfline) = std::bit_cast<oof::color>(result_color);
+            }
          }
+         canvas.write_string(string_buffer);
       }
 
       // Timing things; FPS; change of color
       timer.mark_frame();
-      fast_print(canvas.get_string());
+      fast_print(string_buffer);
 
       const auto fps = timer.get_fps();
       if (fps.has_value())
