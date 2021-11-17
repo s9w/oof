@@ -68,8 +68,10 @@ namespace oof
    using error_callback_type = void(*)(const std::string& msg);
    inline error_callback_type error_callback = nullptr;
 
+   template<typename T, typename ... types>
+   constexpr bool is_any_of = (std::same_as<T, types> || ...);
    template<typename T>
-   concept std_string_type = std::same_as<T, std::string> || std::same_as<T, std::wstring>;
+   concept std_string_type = is_any_of<T, std::string, std::wstring>;
 
    template<typename T, typename variant_type>
    struct is_alternative : std::false_type {};
@@ -104,8 +106,6 @@ namespace oof
 
    // Returns the exact size a string from this vector of sequence types
    [[nodiscard]] auto get_string_reserve_size(const std::vector<sequence_variant_type>& sequences) -> size_t;
-
-
    
 
    struct cell_format {
@@ -116,6 +116,7 @@ namespace oof
       friend constexpr auto operator==(const cell_format&, const cell_format&) -> bool = default;
    };
 
+
    template<oof::std_string_type string_type>
    struct cell {
       using char_type = typename string_type::value_type;
@@ -124,6 +125,7 @@ namespace oof
       cell_format m_format;
       friend constexpr auto operator==(const cell&, const cell&) -> bool = default;
    };
+
 
    template<oof::std_string_type string_type>
    struct screen{
@@ -140,18 +142,10 @@ namespace oof
       mutable std::vector<sequence_variant_type> m_sequence_buffer;
 
    public:
-      explicit screen(
-         const int width, const int height,
-         const int start_column, const int start_line,
-         const cell<string_type>& background
-      );
+      explicit screen(int width, int height, int start_column, int start_line, const cell<string_type>& background);
 
       // This constructor taking a fill_char implies black background, white foreground color
-      explicit screen(
-         const int width, const int height,
-         const int start_column, const int start_line, 
-         const char_type fill_char
-      );
+      explicit screen(int width, int height, int start_column, int start_line, const char_type fill_char);
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
@@ -173,10 +167,7 @@ namespace oof
    private:
       auto update_sequence_buffer() const -> void;
    };
-
-   // Deduction guide
-   template<typename char_type>
-   screen(int, int, int, int, char_type fill_char) -> screen<std::basic_string<char_type>>;
+   
 
    struct pixel_screen {
    private:
@@ -189,11 +180,7 @@ namespace oof
    public:
       std::vector<color> m_pixels;
 
-      explicit pixel_screen(
-         const int width, const int halfline_height,
-         const int start_column, const int start_halfline,
-         const color& fill_color
-      );
+      explicit pixel_screen(int width, int halfline_height, int start_column, int start_halfline, const color& fill_color);
 
       [[nodiscard]] auto begin() const { return std::begin(m_pixels); }
       [[nodiscard]] auto begin()       { return std::begin(m_pixels); }
@@ -221,18 +208,24 @@ namespace oof
    };
 
 
+
+   // Deduction guide
+   template<typename char_type>
+   screen(int, int, int, int, char_type fill_char) -> screen<std::basic_string<char_type>>;
+
    template<typename stream_type, oof::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
 
-   
-
    namespace detail
    {
+
+      // CRTP to extend the numerous sequence types with convenience member functions without using runtime
+      // polymorphism or repeating the code
       template<typename T>
       struct extender {
          operator std::string() const;
          operator std::wstring() const;
-         [[nodiscard]] auto operator+(const std::string& other ) const -> std::string;
+         [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
          [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
       };
 
@@ -301,19 +294,11 @@ namespace oof
          [[nodiscard]] auto is_position_sequence_necessary(const cell_pos& target_pos) const -> bool;
       };
 
-
       template<oof::std_string_type string_type, typename T, typename ... Ts>
-      auto write_ints_into_string(
-         string_type& target,
-         const T& first,
-         const Ts&... rest
-      ) -> void;
+      auto write_ints_into_string(string_type& target, const T& first, const Ts&... rest) -> void;
 
       template<oof::std_string_type string_type>
       [[nodiscard]] auto get_index_color_seq_str(const set_index_color_sequence& sequence) -> string_type;
-
-      template<typename T, typename ... types>
-      constexpr bool is_any_of = (std::same_as<T, types> || ...);
 
       template<std_string_type string_type>
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
@@ -381,7 +366,7 @@ namespace oof
 
 // Constexpr, therefore defined here
 template<oof::sequence_c sequence_type>
-[[nodiscard]] constexpr auto oof::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
+constexpr auto oof::detail::get_sequence_string_size(const sequence_type& sequence) -> size_t
 {
    constexpr auto get_int_param_str_length = [](const int param) -> int {
       if (param < 10)  return 1;
@@ -1003,7 +988,7 @@ oof::pixel_screen::pixel_screen(
    , m_origin_column(start_column)
    , m_origin_halfline(start_halfline)
    , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, detail::get_pixel_background(fill_color))
-   , m_pixels(width* halfline_height, fill_color)
+   , m_pixels(width * halfline_height, fill_color)
 {
 
 }
@@ -1212,36 +1197,36 @@ auto oof::detail::get_pixel_background(const color& fill_color) -> cell<std::wst
 
 template<typename sequence_type>
 oof::detail::extender<sequence_type>::operator std::string() const{
-   const sequence_type& derived = static_cast<const sequence_type&>(*this);
-   return get_string_from_sequence<std::string>(derived);
+   const sequence_type& sequence = static_cast<const sequence_type&>(*this);
+   return get_string_from_sequence<std::string>(sequence);
 }
 
 
-template<typename T>
-oof::detail::extender<T>::operator std::wstring() const {
-   const T& derived = static_cast<const T&>(*this);
-   return get_string_from_sequence<std::wstring>(derived);
+template<typename sequence_type>
+oof::detail::extender<sequence_type>::operator std::wstring() const {
+   const sequence_type& sequence = static_cast<const sequence_type&>(*this);
+   return get_string_from_sequence<std::wstring>(sequence);
 }
 
 
-template<typename T>
-auto oof::detail::extender<T>::operator+(const std::string& other) const -> std::string{
-   const T& derived = static_cast<const T&>(*this);
-   return std::string(derived) + other;
+template<typename sequence_type>
+auto oof::detail::extender<sequence_type>::operator+(const std::string& other) const -> std::string{
+   const sequence_type& sequence = static_cast<const sequence_type&>(*this);
+   return std::string(sequence) + other;
 }
 
 
-template<typename T>
-auto oof::detail::extender<T>::operator+(const std::wstring& other) const -> std::wstring{
-   const T& derived = static_cast<const T&>(*this);
-   return std::wstring(derived) + other;
+template<typename sequence_type>
+auto oof::detail::extender<sequence_type>::operator+(const std::wstring& other) const -> std::wstring{
+   const sequence_type& sequence = static_cast<const sequence_type&>(*this);
+   return std::wstring(sequence) + other;
 }
 
 
 // This is just to mass-instantiate the extender functions by abusing std::visit 
 auto impl_fun() -> void {
-   std::visit([](const auto altern) {return altern + std::string{}; }, oof::sequence_variant_type{});
-   std::visit([](const auto altern) {return altern + std::wstring{}; }, oof::sequence_variant_type{});
+   std::visit([](const auto& altern) {return altern + std::string{};  }, oof::sequence_variant_type{});
+   std::visit([](const auto& altern) {return altern + std::wstring{}; }, oof::sequence_variant_type{});
 }
 
 #endif // OOF_IMPL

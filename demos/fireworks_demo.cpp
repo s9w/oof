@@ -152,16 +152,15 @@ auto fireworks_demo() -> void
    std::vector<big_rocket> big_rockets;
    std::vector<particle> glitter;
    double time_to_next_rocket = 0.0;
+   double dt{};
    while(true)
    {
-      const double dt = timer.get_dt();
-
       // Spawn new rockets
       time_to_next_rocket -= dt;
       if(time_to_next_rocket < 0)
       {
          big_rockets.push_back(get_new_big_rocket(canvas));
-         time_to_next_rocket = rng.get_real(1.0, 3.0);
+         time_to_next_rocket = rng.get_real(1.0, 2.0);
       }
 
       // Gravity
@@ -238,7 +237,7 @@ auto fireworks_demo() -> void
       }
 
       // Printing, timing; FPS; resizing
-      timer.mark_frame();
+      dt = timer.mark_frame();
       fast_print(canvas.get_string());
       const auto fps = timer.get_fps();
       if (fps.has_value()) {

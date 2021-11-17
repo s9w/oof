@@ -68,6 +68,7 @@ auto snow_demo() -> void
     constexpr int width = 60;
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
+   double dt{};
    oof::pixel_screen px{ width, height, 0, 0, oof::color{0, 0, 0} };
 
    std::vector<stick_state> neigh(width*height, stick_state::no_stick);
@@ -103,7 +104,7 @@ auto snow_demo() -> void
       {
          if (flake.m_static)
             continue;
-         flake.m_pos.m_row += max_speed * flake.m_frontality * timer.get_dt();
+         flake.m_pos.m_row += max_speed * flake.m_frontality * dt;
       }
 
       // sticking
@@ -126,7 +127,7 @@ auto snow_demo() -> void
       }
 
       // New snow
-      if(rng.get_flip(0.5 * px.get_width() * timer.get_dt())){
+      if(rng.get_flip(0.5 * px.get_width() * dt)){
          snowflakes.push_back(
             snowflake{
                .m_pos = flake_pos{
@@ -158,7 +159,7 @@ auto snow_demo() -> void
          }
       );
 
-      timer.mark_frame();
+      dt = timer.mark_frame();
       fast_print(px.get_string());
       if (const auto fps = timer.get_fps(); fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));

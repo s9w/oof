@@ -97,10 +97,11 @@ auto cursor_trail_demo() -> void
    timer timer;
    double fade_amount = 0.0;
    std::wstring string_buffer;
-
+   double dt{};
    while (true) {
       // Fading
-      fade_amount += timer.get_dt();
+      fade_amount += 0.5 * dt;
+      // to avoid tiny changes that 8 bit colors can't resolve
       if (fade_amount >= 0.01) {
          for (oof::color& col : canvas)
             col = get_faded_color(col, fade_amount);
@@ -132,8 +133,8 @@ auto cursor_trail_demo() -> void
          canvas.get_string(string_buffer);
       }
 
-      // Timing things; FPS; change of color
-      timer.mark_frame();
+      // Timing things; FPS
+      dt = timer.mark_frame();
       fast_print(string_buffer);
 
       const auto fps = timer.get_fps();

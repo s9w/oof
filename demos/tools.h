@@ -202,11 +202,10 @@ private:
 public:
    inline timer(std::string description);
    inline timer();
-   inline auto mark_frame() -> void;
+   inline auto mark_frame() -> double;
    inline auto get_seconds_since_start() const -> double;
 
    // in seconds
-   inline auto get_dt() const -> double;
    inline auto get_fps() -> std::optional<double>;
    inline auto get_total_ms() const -> std::string;
 };
@@ -228,13 +227,6 @@ timer::timer()
 }
 
 
-auto timer::get_dt() const -> double
-{
-   const auto now = std::chrono::high_resolution_clock::now();
-   auto seconds = std::chrono::duration_cast<std::chrono::microseconds>(now - m_last_tick_time).count() / 1'000'000.0;
-   return seconds;
-}
-
 auto timer::get_fps() -> std::optional<double>
 {
    const auto now = std::chrono::high_resolution_clock::now();
@@ -248,10 +240,13 @@ auto timer::get_fps() -> std::optional<double>
 }
 
 
-auto timer::mark_frame() -> void
+auto timer::mark_frame() -> double
 {
    ++m_fps_frame_count;
-   m_last_tick_time = std::chrono::high_resolution_clock::now();
+   const auto now = std::chrono::high_resolution_clock::now();
+   const auto seconds_dt = std::chrono::duration_cast<std::chrono::microseconds>(now - m_last_tick_time).count() / 1'000'000.0;
+   m_last_tick_time = now;
+   return seconds_dt;
 }
 
 
