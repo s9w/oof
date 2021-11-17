@@ -11,10 +11,10 @@
 
 
 auto my_error_function(
-   const char* msg
+   const std::string& msg
 ) -> void
 {
-   std::cerr << std::format("ERROR: {}\n", msg);
+   std::cerr << std::format("ERROR! msg: {}\n", msg);
    std::terminate();
 }
 

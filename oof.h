@@ -66,7 +66,7 @@ namespace oof
    [[nodiscard]] auto move_down(const int amount) -> move_down_sequence;
 
 
-   using error_callback_type = void(*)(const char* msg);
+   using error_callback_type = void(*)(const std::string& msg);
    inline error_callback_type error_callback = nullptr;
 
    template<typename T>
@@ -324,7 +324,7 @@ namespace oof
 
    namespace detail
    {
-      auto error(const char* msg) -> void;
+      auto error(const std::string& msg) -> void;
 
       [[nodiscard]] auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
@@ -737,7 +737,16 @@ oof::screen<string_type>::screen(
    , m_background(background)
    , m_cells(width* height, background)
 {
-
+   if (width <= 0)
+   {
+      const std::string msg = "Width can't be negative";
+      ::oof::detail::error(msg);
+   }
+   if (height <= 0)
+   {
+      const std::string msg = "Height can't be negative";
+      ::oof::detail::error(msg);
+   }
 }
 
 
@@ -788,6 +797,25 @@ auto oof::screen<string_type>::write_into(
    const cell_format& formatting
 ) -> void
 {
+   if (line < 0 || line >= m_height)
+   {
+      std::string msg = "Line is out of range. Height is ";
+      msg += std::to_string(m_height);
+      msg += ", line was: ";
+      msg += std::to_string(line);
+      ::oof::detail::error(msg);
+      return;
+   }
+   if (column < 0 || column >= m_width)
+   {
+      std::string msg = "Column is out of range. Width is ";
+      msg += std::to_string(m_width);
+      msg += ", column was: ";
+      msg += std::to_string(column);
+      ::oof::detail::error(msg);
+      return;
+   }
+
    const int ending_column = column + static_cast<int>(text.size());
    if (ending_column >= m_width)
    {
@@ -812,6 +840,25 @@ auto oof::screen<string_type>::is_inside(const int column, const int line) const
 template<oof::std_string_type string_type>
 auto oof::screen<string_type>::get_cell(const int column, const int line) -> cell<string_type>&
 {
+   if ( line < 0 || line >= m_height)
+   {
+      std::string msg = "Line is out of range. Height is ";
+      msg += std::to_string(m_height);
+      msg += ", line was: ";
+      msg += std::to_string(line);
+      ::oof::detail::error(msg);
+      return m_cells[0];
+   }
+   if (column < 0 || column >= m_width)
+   {
+      std::string msg = "Column is out of range. Width is ";
+      msg += std::to_string(m_width);
+      msg += ", column was: ";
+      msg += std::to_string(column);
+      ::oof::detail::error(msg);
+      return m_cells[0];
+   }
+
    const int index = line * m_width + column;
    return m_cells[index];
 }
@@ -905,7 +952,9 @@ auto oof::fg_color(const int index) -> fg_index_color_sequence
 {
    if (index < 1 || index > 255)
    {
-      ::oof::detail::error("Index must be in [1, 255]");
+      std::string msg = "Index must be in [1, 255], was: ";
+      msg += std::to_string(index);
+      ::oof::detail::error(msg);
       return fg_index_color_sequence{1};
    }
    return fg_index_color_sequence{ index };
@@ -919,7 +968,9 @@ auto oof::set_index_color(
 {
    if (index < 1 || index > 255)
    {
-      ::oof::detail::error("Index must be in [1, 255]");
+      std::string msg = "Index must be in [1, 255], was: ";
+      msg += std::to_string(index);
+      ::oof::detail::error(msg);
       return set_index_color_sequence{ 1, col };
    }
    return set_index_color_sequence{ index, col };
@@ -1170,7 +1221,7 @@ auto oof::get_string_from_sequence(const sequence_type& sequence) -> string_type
 }
 
 
-auto oof::detail::error(const char* msg) -> void
+auto oof::detail::error(const std::string& msg) -> void
 {
    if(error_callback != nullptr)
    {
