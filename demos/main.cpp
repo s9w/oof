@@ -31,7 +31,7 @@ int main()
    enable_vt_mode();
    std::cout << oof::cursor_visibility(false) << oof::reset_formatting() << oof::clear_screen();
 
-   //std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << oof::underline() << "This is reddish and underlined\n";
+   //std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
    //std::cout << "Still the same - state was changed!\n";
    //std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 

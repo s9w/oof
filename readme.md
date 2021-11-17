@@ -6,59 +6,66 @@ On top of that, *oof* provides two special interfaces that can apply two differe
 
 
 ## Usage details
-To use the library, include `oof.h` in your program. As with most header-only libraries, that include must be preceeded with `#define OOF_IMPL` in **one** cpp file. That way, the code is only compiled once and shouldn't meaningfully impact compile times.
+To use the library, include `oof.h`. As with most header-only libraries, that include must be preceeded with `#define OOF_IMPL` in **one** cpp file. That way, the function implementations are only compiled once.
 
-The simple interface consists of the functions below. They return a magic type that can allow `operator<<` into `std::cout` and `std::wcout`. That type also implicitly converts into a `std::string` and `std::wstring` so you can build up your own strings with them. Printing these sequences is enough IF you have a look at the OS-specific details below.
+The simple interface consists of the functions below. They return a magic type that can `operator<<` into `std::cout` and `std::wcout`. That type also implicitly converts into a `std::string` and `std::wstring` so you can build up your own strings with them.
 
 ```c++
 // Sets the foreground RGB color
-auto fg_color(const color& col) -> fg_rgb_color_sequence;
+auto fg_color(const color& col) -> ...
 
-// Sets the foreground indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-auto fg_color(const int index) -> fg_index_color_sequence;
+// Sets the foreground indexed color. Index must be in [1, 255]
+auto fg_color(int index) -> ...
 
 // Sets the background RGB color
-auto bg_color(const color& col) -> bg_rgb_color_sequence;
+auto bg_color(const color& col) -> ...
 
-// Sets the background indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-auto bg_color(const int index) -> bg_index_color_sequence;
+// Sets the background indexed color. Index must be in [1, 255]
+auto bg_color(int index) -> ...
 
-// Sets the indexed color. Index must be in [1, 255].
-auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
+// Sets the indexed color. Index must be in [1, 255]
+auto set_index_color(int index, const color& col) -> ...
 
 // Sets the underline state
-auto underline(const bool new_value = true) -> underline_sequence;
+auto underline(bool new_value = true) -> ...
 
 // Sets the bold state. Warning: Bold is not supported by all console, see readme
-auto bold(const bool new_value = true) -> bold_sequence;
+auto bold(bool new_value = true) -> ...
 
 // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-auto cursor_visibility(const bool new_value) -> cursor_visibility_sequence;
+auto cursor_visibility(bool new_value) -> ...
 
-// Resets foreground- and background color
-auto reset_formatting()  -> reset_sequence;
+// Resets foreground- and background color, underline and bold state
+auto reset_formatting()  -> ...
 
 // Clears the screen
-auto clear_screen() -> clear_screen_sequence;
+auto clear_screen() -> ...
 
-// Sets the cursor position. Zero-based
-auto position(const int line, const int column) -> position_sequence;
-auto vposition(const int line)                  -> vposition_sequence;
-auto hposition(const int column)                -> hposition_sequence;
+// Sets the cursor position. Zero-based ie 0, 0 is first line, first column
+auto position(int line, int column) -> ...
+auto vposition(int line)            -> ...
+auto hposition(int column)          -> ...
 
 // Moves the cursor a certain amount
-auto move_left (const int amount) -> move_left_sequence;
-auto move_right(const int amount) -> move_right_sequence;
-auto move_up   (const int amount) -> move_up_sequence;
-auto move_down (const int amount) -> move_down_sequence;
+auto move_left (int amount) -> ...
+auto move_right(int amount) -> ...
+auto move_up   (int amount) -> ...
+auto move_down (int amount) -> ...
 ```
 
-Note that the formatting commands change the state of the console. It will be kept until it is changed again, or reset.
+Example:
+```c++
+std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
+std::cout << "Still the same - state was changed!\n";
+std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
+```
 
-Also note that the `oof::color` type is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
+![](readme_images/example.png)
+
+Note that the `oof::color` type is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
 
 ## Performance and screen interfaces
-Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is relatively expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
+Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is pretty expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
 
 For real-time output, there is even more potential: If a program keeps track of the current state of the screen, it can avoid overriding cells that haven't changed. Even more: Changing the console cursor state (even without printing anything) is expensive. By avoiding unnecessary state changes, the performance can be optimized even more. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
 
@@ -68,6 +75,8 @@ For real-time output, there is even more potential: If a program keeps track of 
 
 ## Notes
 Consoles display text. Text is displayed via fonts. If you use letters that aren't included in your console font, that will result in visual artifacts - duh. This especially important for the `pixel_display` type, as it uses the mildly special [Block element](https://en.wikipedia.org/wiki/Block_Elements) '▀'. Some fonts may not have them included. Others do, but have them poorly aligned or sized - breaking up the even pixel grid.
+
+This is a short overview of common monospce fonts and how well they are suited for "pixel" displays. Note that many are great in some sizes, ugly in others.
 
 | | Font name |
 |---|---|
@@ -146,6 +155,5 @@ Tere's [FXTUI](https://github.com/ArthurSonzogni/FTXUI) and [imtui](https://gith
 
 ## TODO
 - components to write higher-level compoennts
-- font comparison
-- box character link
 - helper functions
+- demo videos, demo code, s9w lib
