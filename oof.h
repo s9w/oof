@@ -22,7 +22,6 @@ namespace oof
    struct move_left_sequence; struct move_right_sequence; struct move_up_sequence; struct move_down_sequence;
    struct char_sequence; struct wchar_sequence;
    struct reset_sequence; struct clear_screen_sequence;
-   
 
    // Sets the foreground RGB color
    [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
@@ -39,7 +38,7 @@ namespace oof
    // Sets the indexed color. Index must be in [1, 255].
    [[nodiscard]] auto set_index_color(int index, const color& col) -> set_index_color_sequence;
 
-   // Sets the underline state of the console.
+   // Sets the underline state of the console
    [[nodiscard]] auto underline(bool new_value = true) -> underline_sequence;
 
    // Sets the bold state of the console. Warning: Bold is not supported by all console, see readme
@@ -48,7 +47,7 @@ namespace oof
    // Sets cursor visibility state. Recommended to turn off before doing real-time displays
    [[nodiscard]] auto cursor_visibility(bool new_value) -> cursor_visibility_sequence;
 
-   // Resets foreground- and background color
+   // Resets foreground- and background color, underline and bold state
    [[nodiscard]] auto reset_formatting()  -> reset_sequence;
 
    // Clears the screen
@@ -157,9 +156,9 @@ namespace oof
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
       
-      [[nodiscard]] auto get_cell(int column, int line) -> cell<string_type>&;
+      [[nodiscard]] auto get_cell (int column, int line) -> cell<string_type>&;
       [[nodiscard]] auto is_inside(int column, int line) const -> bool;
-      [[nodiscard]] auto get_string() const -> string_type;
+      [[nodiscard]] auto get_string(                   ) const -> string_type;
                     auto get_string(string_type& buffer) const -> void;
                     auto write_into(const string_type& text, int column, int line, const cell_format& formatting) -> void;
 
@@ -181,7 +180,7 @@ namespace oof
 
    struct pixel_screen {
    private:
-      color m_fill_color;
+      color m_fill_color{};
       int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
       int m_origin_column = 0;
       int m_origin_halfline = 0;
@@ -201,7 +200,7 @@ namespace oof
       [[nodiscard]] auto end()   const { return std::end(m_pixels); }
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
-      [[nodiscard]] auto get_string() const -> std::wstring;
+      [[nodiscard]] auto get_string(                    ) const -> std::wstring;
                     auto get_string(std::wstring& buffer) const -> void;
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_halfline_height() const -> int;
@@ -210,11 +209,11 @@ namespace oof
       [[nodiscard]] auto get_screen_ref() -> screen<std::wstring>&;
 
       // Override all pixels with the fill color
-      auto clear() -> void;
-
+                    auto clear() -> void;
+      
       [[nodiscard]] auto get_color(int column, int halfline) const -> const color&;
-      [[nodiscard]] auto get_color(int column, int halfline) -> color&;
-      [[nodiscard]] auto is_in(int column, int halfline) const -> bool;
+      [[nodiscard]] auto get_color(int column, int halfline)       -> color&;
+      [[nodiscard]] auto is_in    (int column, int halfline) const -> bool;
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
@@ -225,142 +224,18 @@ namespace oof
    template<typename stream_type, oof::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
 
-   struct fg_rgb_color_sequence {
-      color m_color;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct fg_index_color_sequence {
-      int m_index;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct set_index_color_sequence {
-      int m_index{};
-      color m_color;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct bg_rgb_color_sequence {
-      color m_color;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct bg_index_color_sequence {
-      int m_index;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct underline_sequence {
-      bool m_underline;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct bold_sequence {
-      bool m_bold;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct cursor_visibility_sequence {
-      bool m_bold;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct position_sequence {
-      uint8_t m_line;
-      uint8_t m_column;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct hposition_sequence {
-      uint8_t m_column;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct vposition_sequence {
-      uint8_t m_line;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct move_left_sequence {
-      uint8_t m_amount;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct move_right_sequence {
-      uint8_t m_amount;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct move_up_sequence {
-      uint8_t m_amount;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct move_down_sequence {
-      uint8_t m_amount;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct char_sequence {
-      char m_letter;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct wchar_sequence {
-      wchar_t m_letter;
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct reset_sequence {
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
-   struct clear_screen_sequence {
-      operator std::string() const;
-      operator std::wstring() const;
-      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
-      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
-   };
+   
 
    namespace detail
    {
+      template<typename T>
+      struct extender {
+         operator std::string() const;
+         operator std::wstring() const;
+         [[nodiscard]] auto operator+(const std::string& other ) const -> std::string;
+         [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
+      };
+
       auto error(const std::string& msg) -> void;
 
       [[nodiscard]] auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
@@ -444,6 +319,63 @@ namespace oof
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
 
    } // namespace detail
+
+   struct fg_rgb_color_sequence : detail::extender<fg_rgb_color_sequence> {
+      color m_color;
+   };
+   struct fg_index_color_sequence : detail::extender<fg_index_color_sequence> {
+      int m_index;
+   };
+   struct set_index_color_sequence : detail::extender<set_index_color_sequence> {
+      int m_index{};
+      color m_color;
+   };
+   struct bg_rgb_color_sequence : detail::extender<bg_rgb_color_sequence> {
+      color m_color;
+   };
+   struct bg_index_color_sequence : detail::extender<bg_index_color_sequence> {
+      int m_index;
+   };
+   struct underline_sequence : detail::extender<underline_sequence> {
+      bool m_underline;
+   };
+   struct bold_sequence : detail::extender<bold_sequence> {
+      bool m_bold;
+   };
+   struct cursor_visibility_sequence : detail::extender<cursor_visibility_sequence> {
+      bool m_visibility;
+   };
+   struct position_sequence : detail::extender<position_sequence> {
+      uint8_t m_line;
+      uint8_t m_column;
+   };
+   struct hposition_sequence : detail::extender<hposition_sequence> {
+      uint8_t m_column;
+   };
+   struct vposition_sequence : detail::extender<vposition_sequence> {
+      uint8_t m_line;
+   };
+   struct move_left_sequence : detail::extender<move_left_sequence> {
+      uint8_t m_amount;
+   };
+   struct move_right_sequence : detail::extender<move_right_sequence> {
+      uint8_t m_amount;
+   };
+   struct move_up_sequence : detail::extender<move_up_sequence> {
+      uint8_t m_amount;
+   };
+   struct move_down_sequence : detail::extender<move_down_sequence> {
+      uint8_t m_amount;
+   };
+   struct char_sequence : detail::extender<char_sequence> {
+      char m_letter;
+   };
+   struct wchar_sequence : detail::extender<wchar_sequence> {
+      wchar_t m_letter;
+   };
+   struct reset_sequence : detail::extender<reset_sequence> {};
+   struct clear_screen_sequence : detail::extender<clear_screen_sequence> {};
+
 } // namespace oof
 
 
@@ -638,7 +570,7 @@ auto oof::write_sequence_into_string(
       {
          target += static_cast<char_type>('?');
          detail::write_ints_into_string(target, 25);
-         target += static_cast<char_type>(sequence.m_bold ? 'h' : 'l');
+         target += static_cast<char_type>(sequence.m_visibility ? 'h' : 'l');
       }
       else if constexpr (std::is_same_v<sequence_type, position_sequence>)
       {
@@ -947,41 +879,41 @@ auto oof::position(const int line, const int column) -> position_sequence {
 
 
 auto oof::vposition(const int line) -> vposition_sequence {
-   return vposition_sequence{ static_cast<uint8_t>(line) };
+   return vposition_sequence{ .m_line = static_cast<uint8_t>(line) };
 }
 
 
 auto oof::hposition(const int column) -> hposition_sequence {
-   return hposition_sequence{ static_cast<uint8_t>(column) };
+   return hposition_sequence{ .m_column = static_cast<uint8_t>(column) };
 }
 
 
 auto oof::move_left(const int amount) -> move_left_sequence
 {
-   return move_left_sequence{ static_cast<uint8_t>(amount)};
+   return move_left_sequence{ .m_amount = static_cast<uint8_t>(amount)};
 }
 
 
 auto oof::move_right(const int amount) -> move_right_sequence
 {
-   return move_right_sequence{ static_cast<uint8_t>(amount) };
+   return move_right_sequence{ .m_amount = static_cast<uint8_t>(amount) };
 }
 
 
 auto oof::move_up(const int amount) -> move_up_sequence
 {
-   return move_up_sequence{ static_cast<uint8_t>(amount) };
+   return move_up_sequence{ .m_amount = static_cast<uint8_t>(amount) };
 }
 
 
 auto oof::move_down(const int amount) -> move_down_sequence
 {
-   return move_down_sequence{ static_cast<uint8_t>(amount) };
+   return move_down_sequence{ .m_amount = static_cast<uint8_t>(amount) };
 }
 
 
 auto oof::fg_color(const color& col) -> fg_rgb_color_sequence {
-   return fg_rgb_color_sequence{ col };
+   return fg_rgb_color_sequence{ .m_color = col };
 }
 
 
@@ -992,9 +924,9 @@ auto oof::fg_color(const int index) -> fg_index_color_sequence
       std::string msg = "Index must be in [1, 255], was: ";
       msg += std::to_string(index);
       ::oof::detail::error(msg);
-      return fg_index_color_sequence{1};
+      return fg_index_color_sequence{ .m_index=1 };
    }
-   return fg_index_color_sequence{ index };
+   return fg_index_color_sequence{ .m_index = index };
 }
 
 
@@ -1008,15 +940,15 @@ auto oof::set_index_color(
       std::string msg = "Index must be in [1, 255], was: ";
       msg += std::to_string(index);
       ::oof::detail::error(msg);
-      return set_index_color_sequence{ 1, col };
+      return set_index_color_sequence{ .m_index=1, .m_color=col };
    }
-   return set_index_color_sequence{ index, col };
+   return set_index_color_sequence{ .m_index=index, .m_color=col };
 }
 
 
 auto oof::bg_color(const color& col) -> bg_rgb_color_sequence
 {
-   return bg_rgb_color_sequence{ col };
+   return bg_rgb_color_sequence{ .m_color=col };
 }
 
 
@@ -1025,27 +957,27 @@ auto oof::bg_color(const int index) -> bg_index_color_sequence
    if (index < 1 || index > 255)
    {
       ::oof::detail::error("Index must be in [1, 255]");
-      return bg_index_color_sequence{ 1 };
+      return bg_index_color_sequence{ .m_index=1 };
    }
-   return bg_index_color_sequence{ index };
+   return bg_index_color_sequence{ .m_index=index };
 }
 
 
 auto oof::underline(const bool new_value) -> underline_sequence
 {
-   return underline_sequence{ new_value };
+   return underline_sequence{ .m_underline=new_value };
 }
 
 
 auto oof::bold(const bool new_value) -> bold_sequence
 {
-   return bold_sequence{ new_value };
+   return bold_sequence{ .m_bold=new_value };
 }
 
 
 auto oof::cursor_visibility(const bool new_value) -> cursor_visibility_sequence
 {
-   return cursor_visibility_sequence{ new_value };
+   return cursor_visibility_sequence{ .m_visibility=new_value };
 }
 
 
@@ -1191,21 +1123,21 @@ auto oof::detail::draw_state<string_type>::write_sequence(
       return;
 
    if (m_format.has_value() == false) {
-      sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.m_fg_color });
-      sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.m_bg_color });
-      sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
-      sequence_buffer.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+      sequence_buffer.push_back(fg_rgb_color_sequence{ .m_color=target_cell_state.m_format.m_fg_color });
+      sequence_buffer.push_back(bg_rgb_color_sequence{ .m_color=target_cell_state.m_format.m_bg_color });
+      sequence_buffer.push_back(underline_sequence{ .m_underline=target_cell_state.m_format.m_underline });
+      sequence_buffer.push_back(bold_sequence{ .m_bold=target_cell_state.m_format.m_bold });
    }
    else {
       // Apply differences between console state and the target state
       if (target_cell_state.m_format.m_fg_color != m_format->m_fg_color)
-         sequence_buffer.push_back(fg_rgb_color_sequence{ target_cell_state.m_format.m_fg_color });
+         sequence_buffer.push_back(fg_rgb_color_sequence{ .m_color=target_cell_state.m_format.m_fg_color });
       if (target_cell_state.m_format.m_bg_color != m_format->m_bg_color)
-         sequence_buffer.push_back(bg_rgb_color_sequence{ target_cell_state.m_format.m_bg_color });
+         sequence_buffer.push_back(bg_rgb_color_sequence{ .m_color=target_cell_state.m_format.m_bg_color });
       if (target_cell_state.m_format.m_underline != m_format->m_underline)
-         sequence_buffer.push_back(underline_sequence{ target_cell_state.m_format.m_underline });
+         sequence_buffer.push_back(underline_sequence{ .m_underline=target_cell_state.m_format.m_underline });
       if (target_cell_state.m_format.m_bold != m_format->m_bold)
-         sequence_buffer.push_back(bold_sequence{ target_cell_state.m_format.m_bold });
+         sequence_buffer.push_back(bold_sequence{ .m_bold=target_cell_state.m_format.m_bold });
    }
 
    if (this->is_position_sequence_necessary(target_pos)) {
@@ -1217,12 +1149,11 @@ auto oof::detail::draw_state<string_type>::write_sequence(
       );
    }
 
-   sequence_buffer.push_back(fitting_char_sequence_t<string_type>{ target_cell_state.m_letter });
+   sequence_buffer.push_back(fitting_char_sequence_t<string_type>{ .m_letter=target_cell_state.m_letter });
 
    m_last_written_pos = target_pos;
    m_format = target_cell_state.m_format;
 }
-
 
 
 template<oof::std_string_type string_type>
@@ -1279,239 +1210,38 @@ auto oof::detail::get_pixel_background(const color& fill_color) -> cell<std::wst
 }
 
 
-oof::fg_rgb_color_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::fg_index_color_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::set_index_color_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::bg_rgb_color_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::bg_index_color_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::underline_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::bold_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::position_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::hposition_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::vposition_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::move_left_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::move_right_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::move_up_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::move_down_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::char_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::wchar_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::reset_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::clear_screen_sequence::operator std::string() const{
-   return get_string_from_sequence<std::string>(*this);
-}
-oof::cursor_visibility_sequence::operator std::string() const {
-   return get_string_from_sequence<std::string>(*this);
+template<typename sequence_type>
+oof::detail::extender<sequence_type>::operator std::string() const{
+   const sequence_type& derived = static_cast<const sequence_type&>(*this);
+   return get_string_from_sequence<std::string>(derived);
 }
 
 
-oof::fg_rgb_color_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::fg_index_color_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::set_index_color_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::bg_rgb_color_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::bg_index_color_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::underline_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::bold_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::position_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::hposition_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::vposition_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::move_left_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::move_right_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::move_up_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::move_down_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::char_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::wchar_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::reset_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::clear_screen_sequence::operator std::wstring() const{
-   return get_string_from_sequence<std::wstring>(*this);
-}
-oof::cursor_visibility_sequence::operator std::wstring() const {
-   return get_string_from_sequence<std::wstring>(*this);
+template<typename T>
+oof::detail::extender<T>::operator std::wstring() const {
+   const T& derived = static_cast<const T&>(*this);
+   return get_string_from_sequence<std::wstring>(derived);
 }
 
 
-auto oof::fg_rgb_color_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::fg_index_color_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::set_index_color_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::bg_rgb_color_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::bg_index_color_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::underline_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::bold_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::position_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::hposition_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::vposition_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::move_left_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::move_right_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::move_up_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::move_down_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::char_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::wchar_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::reset_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::clear_screen_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
-}
-auto oof::cursor_visibility_sequence::operator+(const std::string& other) const -> std::string{
-   return std::string(*this) + other;
+template<typename T>
+auto oof::detail::extender<T>::operator+(const std::string& other) const -> std::string{
+   const T& derived = static_cast<const T&>(*this);
+   return std::string(derived) + other;
 }
 
 
-auto oof::fg_rgb_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
+template<typename T>
+auto oof::detail::extender<T>::operator+(const std::wstring& other) const -> std::wstring{
+   const T& derived = static_cast<const T&>(*this);
+   return std::wstring(derived) + other;
 }
-auto oof::fg_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::set_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::bg_rgb_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::bg_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::underline_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::bold_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::position_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::hposition_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::vposition_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::move_left_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::move_right_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::move_up_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::move_down_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::char_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::wchar_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::reset_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::clear_screen_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
-}
-auto oof::cursor_visibility_sequence::operator+(const std::wstring& other) const -> std::wstring{
-   return std::wstring(*this) + other;
+
+
+// This is just to mass-instantiate the extender functions by abusing std::visit 
+auto impl_fun() -> void {
+   std::visit([](const auto altern) {return altern + std::string{}; }, oof::sequence_variant_type{});
+   std::visit([](const auto altern) {return altern + std::wstring{}; }, oof::sequence_variant_type{});
 }
 
 #endif // OOF_IMPL
