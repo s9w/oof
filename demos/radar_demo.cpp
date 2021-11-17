@@ -42,7 +42,7 @@ auto radar_demo() -> void
    std::wstring string_buffer;
    while(true){
       { // Randomly fading pixels to black
-         const int pixel_count = px.get_height() * px.get_width();
+         const int pixel_count = px.get_halfline_height() * px.get_width();
          const int fade_runs = get_int(100.0 * pixel_count * timer.get_dt());
          for (int i = 0; i < fade_runs; ++i) {
             oof::color& pixel = rng.choice(px.m_pixels);
@@ -63,7 +63,7 @@ auto radar_demo() -> void
       }
       
       timer.mark_frame();
-      px.write_string(string_buffer);
+      px.get_string(string_buffer);
       fast_print(string_buffer);
       if(const auto fps = timer.get_fps(); fps.has_value())
          set_window_title("FPS: " + std::to_string(*fps));

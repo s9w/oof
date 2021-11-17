@@ -116,7 +116,7 @@ auto cursor_trail_demo() -> void
          string_buffer = std::wstring(oof::position(10, 20)) + std::wstring(oof::reset_formatting()) +  L"PLACE MOUSE INSIDE WINDOW";
       }
       else {
-         for (int halfline = 0; halfline < canvas.get_height(); ++halfline) {
+         for (int halfline = 0; halfline < canvas.get_halfline_height(); ++halfline) {
             for (int column = 0; column < canvas.get_width(); ++column) {
                const s9w::dvec2 cell_pos = s9w::dvec2{ column, halfline } + s9w::dvec2{ 0.5 };
 
@@ -129,7 +129,7 @@ auto cursor_trail_demo() -> void
                canvas.get_color(column, halfline) = std::bit_cast<oof::color>(result_color);
             }
          }
-         canvas.write_string(string_buffer);
+         canvas.get_string(string_buffer);
       }
 
       // Timing things; FPS; change of color

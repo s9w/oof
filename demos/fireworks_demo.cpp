@@ -115,7 +115,7 @@ namespace{
 
       const s9w::dvec2 glitter_pos = get_noised_pos(r.m_pos, r.m_trail_spread);
       const auto& [column, row] = get_column_row(glitter_pos);
-      if (column<0 || column > canvas.get_width() - 1 || row<0 || row>canvas.get_height() - 1)
+      if (column<0 || column > canvas.get_width() - 1 || row<0 || row>canvas.get_halfline_height() - 1)
          return;
       glitter.push_back(
          particle{
@@ -130,7 +130,7 @@ namespace{
    auto get_new_big_rocket(const oof::pixel_screen& canvas) -> big_rocket
    {
       const double x = rng.get_real(10.0, canvas.get_width() - 10.0);
-      const double y = canvas.get_height();
+      const double y = canvas.get_halfline_height();
 
       constexpr double min_rocket_speed = 20.0;
       constexpr double max_rocket_speed = 55.0;

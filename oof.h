@@ -28,25 +28,25 @@ namespace oof
    [[nodiscard]] auto fg_color(const color& col) -> fg_rgb_color_sequence;
 
    // Sets the foreground indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-   [[nodiscard]] auto fg_color(const int index) -> fg_index_color_sequence;
+   [[nodiscard]] auto fg_color(int index) -> fg_index_color_sequence;
 
    // Sets the background RGB color
    [[nodiscard]] auto bg_color(const color& col) -> bg_rgb_color_sequence;
 
    // Sets the background indexed color. Index must be in [1, 255]. You can define colors with set_index_color().
-   [[nodiscard]] auto bg_color(const int index) -> bg_index_color_sequence;
+   [[nodiscard]] auto bg_color(int index) -> bg_index_color_sequence;
 
    // Sets the indexed color. Index must be in [1, 255].
-   [[nodiscard]] auto set_index_color(const int index, const color& col) -> set_index_color_sequence;
+   [[nodiscard]] auto set_index_color(int index, const color& col) -> set_index_color_sequence;
 
    // Sets the underline state of the console.
-   [[nodiscard]] auto underline(const bool new_value = true) -> underline_sequence;
+   [[nodiscard]] auto underline(bool new_value = true) -> underline_sequence;
 
    // Sets the bold state of the console. Warning: Bold is not supported by all console, see readme
-   [[nodiscard]] auto bold(const bool new_value = true) -> bold_sequence;
+   [[nodiscard]] auto bold(bool new_value = true) -> bold_sequence;
 
    // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-   [[nodiscard]] auto cursor_visibility(const bool new_value) -> cursor_visibility_sequence;
+   [[nodiscard]] auto cursor_visibility(bool new_value) -> cursor_visibility_sequence;
 
    // Resets foreground- and background color
    [[nodiscard]] auto reset_formatting()  -> reset_sequence;
@@ -55,15 +55,15 @@ namespace oof
    [[nodiscard]] auto clear_screen() -> clear_screen_sequence;
 
    // Sets the cursor position. Zero-based
-   [[nodiscard]] auto position(const int line, const int column) -> position_sequence;
-   [[nodiscard]] auto vposition(const int line) -> vposition_sequence;
-   [[nodiscard]] auto hposition(const int column) -> hposition_sequence;
+   [[nodiscard]] auto position(int line, int column) -> position_sequence;
+   [[nodiscard]] auto vposition(int line) -> vposition_sequence;
+   [[nodiscard]] auto hposition(int column) -> hposition_sequence;
 
    // Moves the cursor a certain amount
-   [[nodiscard]] auto move_left(const int amount) -> move_left_sequence;
-   [[nodiscard]] auto move_right(const int amount) -> move_right_sequence;
-   [[nodiscard]] auto move_up(const int amount) -> move_up_sequence;
-   [[nodiscard]] auto move_down(const int amount) -> move_down_sequence;
+   [[nodiscard]] auto move_left(int amount) -> move_left_sequence;
+   [[nodiscard]] auto move_right(int amount) -> move_right_sequence;
+   [[nodiscard]] auto move_up(int amount) -> move_up_sequence;
+   [[nodiscard]] auto move_down(int amount) -> move_down_sequence;
 
 
    using error_callback_type = void(*)(const std::string& msg);
@@ -157,11 +157,11 @@ namespace oof
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
       
-      [[nodiscard]] auto get_cell(const int column, const int line) -> cell<string_type>&;
-      [[nodiscard]] auto is_inside(const int column, const int line) const -> bool;
+      [[nodiscard]] auto get_cell(int column, int line) -> cell<string_type>&;
+      [[nodiscard]] auto is_inside(int column, int line) const -> bool;
       [[nodiscard]] auto get_string() const -> string_type;
-      [[nodiscard]] auto write_string(string_type& buffer) const -> void;
-      auto write_into(const string_type& text, const int column, const int line, const cell_format& formatting) -> void;
+                    auto get_string(string_type& buffer) const -> void;
+                    auto write_into(const string_type& text, int column, int line, const cell_format& formatting) -> void;
 
       // Override all cells with the background state
       auto clear() -> void;
@@ -177,8 +177,7 @@ namespace oof
 
    // Deduction guide
    template<typename char_type>
-   screen(int width, int height, int start_column, int start_line, char_type fill_char)
-      -> screen<std::basic_string<char_type>>;
+   screen(int, int, int, int, char_type fill_char) -> screen<std::basic_string<char_type>>;
 
    struct pixel_screen {
    private:
@@ -203,9 +202,9 @@ namespace oof
       [[nodiscard]] auto end()         { return std::end(m_pixels); }
       
       [[nodiscard]] auto get_string() const -> std::wstring;
-      [[nodiscard]] auto write_string(std::wstring& buffer) const -> void;
+                    auto get_string(std::wstring& buffer) const -> void;
       [[nodiscard]] auto get_width() const -> int;
-      [[nodiscard]] auto get_height() const -> int;
+      [[nodiscard]] auto get_halfline_height() const -> int;
 
       // If you want to override something in the screen
       [[nodiscard]] auto get_screen_ref() -> screen<std::wstring>&;
@@ -213,9 +212,9 @@ namespace oof
       // Override all pixels with the fill color
       auto clear() -> void;
 
-      [[nodiscard]] auto get_color(const int column, const int halfline) const -> const color&;
-      [[nodiscard]] auto get_color(const int column, const int halfline) -> color&;
-      [[nodiscard]] auto is_in(const int column, const int halfline) const -> bool;
+      [[nodiscard]] auto get_color(int column, int halfline) const -> const color&;
+      [[nodiscard]] auto get_color(int column, int halfline) -> color&;
+      [[nodiscard]] auto is_in(int column, int halfline) const -> bool;
 
    private:
       [[nodiscard]] auto get_line_height() const -> int;
@@ -230,96 +229,134 @@ namespace oof
       color m_color;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct fg_index_color_sequence {
       int m_index;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct set_index_color_sequence {
       int m_index{};
       color m_color;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct bg_rgb_color_sequence {
       color m_color;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct bg_index_color_sequence {
       int m_index;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string& other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct underline_sequence {
       bool m_underline;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct bold_sequence {
       bool m_bold;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct cursor_visibility_sequence {
       bool m_bold;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct position_sequence {
       uint8_t m_line;
       uint8_t m_column;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct hposition_sequence {
       uint8_t m_column;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct vposition_sequence {
       uint8_t m_line;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct move_left_sequence {
       uint8_t m_amount;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct move_right_sequence {
       uint8_t m_amount;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct move_up_sequence {
       uint8_t m_amount;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct move_down_sequence {
       uint8_t m_amount;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct char_sequence {
       char m_letter;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct wchar_sequence {
       wchar_t m_letter;
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct reset_sequence {
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
    struct clear_screen_sequence {
       operator std::string() const;
       operator std::wstring() const;
+      [[nodiscard]] auto operator+(const std::string&  other) const -> std::string;
+      [[nodiscard]] auto operator+(const std::wstring& other) const -> std::wstring;
    };
 
    namespace detail
@@ -775,7 +812,7 @@ auto oof::screen<string_type>::get_string() const -> string_type
 
 
 template<oof::std_string_type string_type>
-auto oof::screen<string_type>::write_string(string_type& buffer) const -> void
+auto oof::screen<string_type>::get_string(string_type& buffer) const -> void
 {
    this->update_sequence_buffer();
 
@@ -1070,10 +1107,10 @@ auto oof::pixel_screen::get_string() const -> std::wstring
 }
 
 
-auto oof::pixel_screen::write_string(std::wstring& buffer) const -> void
+auto oof::pixel_screen::get_string(std::wstring& buffer) const -> void
 {
    compute_result();
-   m_screen.write_string(buffer);
+   m_screen.get_string(buffer);
 }
 
 
@@ -1118,7 +1155,7 @@ auto oof::pixel_screen::get_width() const -> int
 }
 
 
-auto oof::pixel_screen::get_height() const -> int
+auto oof::pixel_screen::get_halfline_height() const -> int
 {
    return m_halfline_height;
 }
@@ -1299,6 +1336,8 @@ oof::clear_screen_sequence::operator std::string() const{
 oof::cursor_visibility_sequence::operator std::string() const {
    return get_string_from_sequence<std::string>(*this);
 }
+
+
 oof::fg_rgb_color_sequence::operator std::wstring() const{
    return get_string_from_sequence<std::wstring>(*this);
 }
@@ -1355,6 +1394,124 @@ oof::clear_screen_sequence::operator std::wstring() const{
 }
 oof::cursor_visibility_sequence::operator std::wstring() const {
    return get_string_from_sequence<std::wstring>(*this);
+}
+
+
+auto oof::fg_rgb_color_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::fg_index_color_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::set_index_color_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::bg_rgb_color_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::bg_index_color_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::underline_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::bold_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::position_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::hposition_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::vposition_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::move_left_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::move_right_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::move_up_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::move_down_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::char_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::wchar_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::reset_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::clear_screen_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+auto oof::cursor_visibility_sequence::operator+(const std::string& other) const -> std::string{
+   return std::string(*this) + other;
+}
+
+
+auto oof::fg_rgb_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::fg_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::set_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::bg_rgb_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::bg_index_color_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::underline_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::bold_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::position_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::hposition_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::vposition_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::move_left_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::move_right_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::move_up_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::move_down_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::char_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::wchar_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::reset_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::clear_screen_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
+}
+auto oof::cursor_visibility_sequence::operator+(const std::wstring& other) const -> std::wstring{
+   return std::wstring(*this) + other;
 }
 
 #endif // OOF_IMPL
