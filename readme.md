@@ -3,12 +3,18 @@ It's common for C++ programs to write output to the console. But consoles are fa
 
 On top of that, *oof* provides two special interfaces that can apply two different optimizations to the resulting stream of VT sequences, so that real-time outputs like those below are possible. Note that everything in these videos are letters in a console window:
 
+https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
+https://user-images.githubusercontent.com/6044318/142469820-f7af6525-d1ce-4d09-95c9-458297add315.mp4
+
+https://user-images.githubusercontent.com/6044318/142469849-e359955d-fa3a-47d9-9a81-74905ee2f8fd.mp4
+
+https://user-images.githubusercontent.com/6044318/142469871-39f34712-f05e-4f8a-818a-b023081c1eee.mp4
 
 ## Usage details
 To use the library, include `oof.h`. As with most header-only libraries, that include must be preceeded with `#define OOF_IMPL` in **one** cpp file. That way, the function implementations are only compiled once.
 
-The simple interface consists of the functions below. They return a magic type that can `operator<<` into `std::cout` and `std::wcout`. That type also implicitly converts into a `std::string` and `std::wstring` so you can build up your own strings with them.
+The simple interface consists of the functions below.
 
 ```c++
 // Sets the foreground RGB color
@@ -53,16 +59,16 @@ auto move_up   (int amount) -> ...
 auto move_down (int amount) -> ...
 ```
 
-Example:
+Those functions return a magic type that can `operator<<` into `std::cout` and `std::wcout`. They also implicitly convert into `std::string` and `std::wstring` so you can build up your own strings with them. Example:
 ```c++
 std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
 std::cout << "Still the same - state was changed!\n";
 std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 ```
 
-![](readme_images/example.png)
+![example](https://user-images.githubusercontent.com/6044318/142437248-a999738c-2191-4ccc-be78-132685e2169c.png)
 
-Note that the `oof::color` type is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
+The type `oof::color` is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
 
 ## Performance and screen interfaces
 Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is pretty expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
