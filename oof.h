@@ -154,7 +154,9 @@ namespace oof
       [[nodiscard]] auto is_inside(int column, int line) const -> bool;
       [[nodiscard]] auto get_string(                   ) const -> string_type;
                     auto get_string(string_type& buffer) const -> void;
-                    auto write_into(const string_type& text, int column, int line, const cell_format& formatting) -> void;
+
+      // This writes a text into the screen cells
+      auto write_into(const string_type& text, int column, int line, const cell_format& formatting) -> void;
 
       // Override all cells with the background state
       auto clear() -> void;
