@@ -1,7 +1,7 @@
 # Oof (omnipotent output friend)
-It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. Your omnipotent output friend (*oof*) wraps this in a single C++ header.
+It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. Oof is a single C++ header that wraps these in a convenient way
 
-On top of that, *oof* provides two special interfaces that can apply two different optimizations to the resulting stream of VT sequences, so that real-time outputs like those below are possible. Note that everything in these videos are letters in a console window:
+On top of that, *oof* provides two special interfaces that heavily optimizes the resulting stream of VT sequences, so that real-time outputs like those below are possible. Note that everything in these videos are letters in a console window:
 
 https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
@@ -11,7 +11,7 @@ https://user-images.githubusercontent.com/6044318/142469849-e359955d-fa3a-47d9-9
 
 https://user-images.githubusercontent.com/6044318/142469871-39f34712-f05e-4f8a-818a-b023081c1eee.mp4
 
-## Usage details
+## Usage
 To use the library, include `oof.h`. As with most header-only libraries, that include must be preceeded with `#define OOF_IMPL` in **one** cpp file. That way, the function implementations are only compiled once.
 
 The simple interface consists of the functions below.
@@ -59,7 +59,9 @@ auto move_up   (int amount) -> ...
 auto move_down (int amount) -> ...
 ```
 
-Those functions return a magic type that can `operator<<` into `std::cout` and `std::wcout`. They also implicitly convert into `std::string` and `std::wstring` so you can build up your own strings with them. Example:
+Index colors are simply colors refered to by an index. The colors behind the indices can be set with `set_index_color()`.
+
+All these functions return a magic type that can `operator<<` into `std::cout` and `std::wcout`. Example:
 ```c++
 std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
 std::cout << "Still the same - state was changed!\n";
@@ -68,21 +70,63 @@ std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to norma
 
 ![example](https://user-images.githubusercontent.com/6044318/142437248-a999738c-2191-4ccc-be78-132685e2169c.png)
 
+They also implicitly convert into `std::string` and `std::wstring` so you can build up your own strings with them.
+
 The type `oof::color` is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
 
 ## Performance and screen interfaces
 Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is pretty expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
 
-For real-time output, there is even more potential: If a program keeps track of the current state of the screen, it can avoid overriding cells that haven't changed. Even more: Changing the console cursor state (even without printing anything) is expensive. By avoiding unnecessary state changes, the performance can be optimized even more. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
+If you want real-time output, ie continuously changing what's on the screen, there's even more potential: If a program keeps track of the current state of the screen, it can avoid writing cells that haven't changed. And: Changing the console cursor state (even without printing anything) is expensive. By avoiding unnecessary state changes, the performance can be optimized even more. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
 
-`oof::screen` lets you define a rectangle of your console window, and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an *optimal* string to achieve the desired state. This assumes that the user didn't interfere - so don't.
+`oof::screen` lets you define a rectangle of your console window, and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be used to avoid allocating a new string. So it'll avoid memory waste. Almost always, the cost of building up the string is tiny vs the cost of printing, so don't worry about this too much.
 
-`oof::pixel_screen` does the same for a niche case. Consoles always write text, ie letters. With most fonts, a single letter or cell is much taller than wide. By using a very special character that exactly fills the upper half of a cell, the visible area gets effectively transformed into (almost) square pixels. Exactly that's done by the `pixel_screen` class. There you only set colors and give up control of the letters themselves. Note that that type often has `halfline` type parameters. That's due to the fact that a "pixel" is now just half a line high.
+Example for `oof::screen` usage:
+```c++
+oof::screen scr(10, 3, 0, 0, ' ');
+for(uint64_t i=0; ; ++i){
+   int j = 0;
+   for (auto& cell : scr) {
+      cell.m_letter = 'A' + (j + i) % 26;
+      cell.m_format.m_bg_color.red = j * 8;
+      ++j;
+   }
+   std::cout << scr.get_string();
+}
+```
+![screen_example](https://user-images.githubusercontent.com/6044318/142577018-cc25f98e-0572-4179-ac65-ffa79964d25c.gif)
+
+The API in general is pretty low level compared to [other](https://github.com/ArthurSonzogni/FTXUI) [libraries](https://github.com/ggerganov/imtui), focused on high performance and modularity. You're encouraged to use it to build your own components. A good example for this is [the horizontal bars demo](demos/bars_demo.cpp):
+
+![bars_demo](https://user-images.githubusercontent.com/6044318/142583233-c026da81-815e-4486-9588-b02ecd9c6ac8.gif)
+
+Consoles always write text, ie letters. With most fonts, a single letter or cell is much taller than wide. By using a very special character that exactly fills the upper half of a cell, the visible area gets effectively transformed into (almost) square pixels. Exactly that's done by the `pixel_screen` class. There you only set colors and give up control of the letters themselves. Note that that type often has `halfline` type parameters. That's due to the fact that a "pixel" is now just half a line high.
+
+### `oof::pixel_screen`
+Example for `oof::pixel_screen` usage:
+```c++
+oof::pixel_screen screen(10, 10);
+const auto t0 = std::chrono::high_resolution_clock::now();
+while(true){
+   const auto t1 = std::chrono::high_resolution_clock::now();
+   const double seconds = std::chrono::duration<double>(t1-t0).count();
+
+   for (oof::color& pixel : screen) {
+      pixel.red   = 127.5 + 127.5 * std::sin(1.0 * seconds);
+      pixel.green = 127.5 + 127.5 * std::sin(2.0 * seconds);
+      pixel.blue  = 127.5 + 127.5 * std::sin(3.0 * seconds);
+   }
+   fast_print(screen.get_string());
+}
+```
+![pixel_screen_example](https://user-images.githubusercontent.com/6044318/142581841-66a235d1-d1e8-4f02-b7e7-2c9889a321e6.gif)
+
+The source code from the demo videos at the beginning is in this repo under /demos. That code uses a not-included and yet unreleased helper library (`s9w::`) for colors and math. But those aren't crucial if you just want to have a look.
 
 ## Notes
 Consoles display text. Text is displayed via fonts. If you use letters that aren't included in your console font, that will result in visual artifacts - duh. This especially important for the `pixel_display` type, as it uses the mildly special [Block element](https://en.wikipedia.org/wiki/Block_Elements) '▀'. Some fonts may not have them included. Others do, but have them poorly aligned or sized - breaking up the even pixel grid.
 
-This is a short overview of common monospce fonts and how well they are suited for "pixel" displays. Note that many are great in some sizes, ugly in others.
+This is a short overview of common monospce fonts and how well they are suited for "pixel" displays. Note that many are great in some sizes but ugly in others.
 
 | | Font name |
 |---|---|
@@ -152,14 +196,6 @@ auto enable_vt_mode() -> void
 }
 ```
 
-Also note that while the VT sequences are universal, not all consoles programs and operating systems may support them. I only have access to a windows machine so I can't make any claims on other operating systems.
-
-Be warned that the [new Windows Terminal](https://github.com/microsoft/terminal) has some problems with irregular frame pacing. It will report high FPS but "feel" much choppier than good old `cmd.exe`.
-
-## Similar projects
-Tere's [FXTUI](https://github.com/ArthurSonzogni/FTXUI) and [imtui](https://github.com/ggerganov/imtui) which write complete text-based user interfaces.
-
-## TODO
-- components to write higher-level compoennts
-- helper functions
-- demo videos, demo code, s9w lib
+- If you use `pixel_screen` or `screen<std::wstring>` in combination with `std::wcout`, you might not see the output. That's because unicode output might need some magic to enable. Either google that, or use the recommended `fast_print` above as it's faster and doesn't suffer from these problems.
+- While the VT sequences are universal, not all consoles programs and operating systems may support them. I only have access to a windows machine so I can't make any claims on other operating systems.
+- The [new Windows Terminal](https://github.com/microsoft/terminal) has some problems with irregular frame pacing. It will report high FPS but "feel" much choppier than good old `cmd.exe`.
