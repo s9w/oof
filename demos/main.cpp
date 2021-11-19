@@ -35,6 +35,32 @@ int main()
    //std::cout << "Still the same - state was changed!\n";
    //std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 
+   // oof::screen scr(10, 3, 0, 0, ' ');
+   // for(uint64_t i=0; ; ++i){
+   //    int j = 0;
+   //    for (auto& cell : scr) {
+   //       cell.m_letter = 'A' + (j + i) % 26;
+   //       cell.m_format.m_bg_color.red = j * 8;
+   //       ++j;
+   //    }
+   //    std::cout << scr.get_string();
+   // }
+
+   // oof::pixel_screen screen(10, 10);
+   // const auto t0 = std::chrono::high_resolution_clock::now();
+   // while(true){
+   //    const auto t1 = std::chrono::high_resolution_clock::now();
+   //    const double seconds = std::chrono::duration<double>(t1-t0).count();
+   //
+   //    for (oof::color& pixel : screen) {
+   //       pixel.red   = 127.5 + 127.5 * std::sin(1.0 * seconds);
+   //       pixel.green = 127.5 + 127.5 * std::sin(2.0 * seconds);
+   //       pixel.blue  = 127.5 + 127.5 * std::sin(3.0 * seconds);
+   //    }
+   //    fast_print(screen.get_string());
+   // }
+
+
    int demo_choice = 0;
    print_choice("Bars");
    print_choice("Text crawl");
