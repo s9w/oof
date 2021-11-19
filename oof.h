@@ -129,19 +129,8 @@ namespace oof
 
    template<oof::std_string_type string_type>
    struct screen{
-   private:
       using char_type = typename string_type::value_type;
 
-      int m_width = 0;
-      int m_height = 0;
-      int m_origin_line = 0;
-      int m_origin_column = 0;
-      cell<string_type> m_background;
-      std::vector<cell<string_type>> m_cells;
-      mutable std::vector<cell<string_type>> m_old_cells;
-      mutable std::vector<sequence_variant_type> m_sequence_buffer;
-
-   public:
       explicit screen(int width, int height, int start_column, int start_line, const cell<string_type>& background);
 
       // This constructor taking a fill_char implies black background, white foreground color
@@ -168,21 +157,28 @@ namespace oof
 
    private:
       auto update_sequence_buffer() const -> void;
+
+      int m_width = 0;
+      int m_height = 0;
+      int m_origin_line = 0;
+      int m_origin_column = 0;
+      cell<string_type> m_background;
+      std::vector<cell<string_type>> m_cells;
+      mutable std::vector<cell<string_type>> m_old_cells;
+      mutable std::vector<sequence_variant_type> m_sequence_buffer;
    };
    
 
    struct pixel_screen {
-   private:
-      color m_fill_color{};
-      int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
-      int m_origin_column = 0;
-      int m_origin_halfline = 0;
-      mutable screen<std::wstring> m_screen;
-
-   public:
       std::vector<color> m_pixels;
 
       explicit pixel_screen(int width, int halfline_height, int start_column, int start_halfline, const color& fill_color);
+
+      // This will init with black fill color
+      explicit pixel_screen(int width, int halfline_height, int start_column, int start_halfline);
+
+      // This will init with black fill color and starting at the top left
+      explicit pixel_screen(int width, int halfline_height);
 
       [[nodiscard]] auto begin() const { return std::begin(m_pixels); }
       [[nodiscard]] auto begin()       { return std::begin(m_pixels); }
@@ -207,6 +203,12 @@ namespace oof
    private:
       [[nodiscard]] auto get_line_height() const -> int;
       auto compute_result() const -> void;
+
+      color m_fill_color{};
+      int m_halfline_height = 0; // This refers to "pixel" height. Height in lines will be half that.
+      int m_origin_column = 0;
+      int m_origin_halfline = 0;
+      mutable screen<std::wstring> m_screen;
    };
 
 
@@ -991,6 +993,28 @@ oof::pixel_screen::pixel_screen(
    , m_origin_halfline(start_halfline)
    , m_screen(width, this->get_line_height(), m_origin_column, m_origin_halfline / 2, detail::get_pixel_background(fill_color))
    , m_pixels(width * halfline_height, fill_color)
+{
+
+}
+
+
+oof::pixel_screen::pixel_screen(
+   const int width,
+   const int halfline_height,
+   const int start_column,
+   const int start_halfline
+)
+   : pixel_screen(width, halfline_height, start_column, start_halfline, color{})
+{
+
+}
+
+
+oof::pixel_screen::pixel_screen(
+   const int width,
+   const int halfline_height
+)
+   : pixel_screen(width, halfline_height, 0, 0, color{})
 {
 
 }
