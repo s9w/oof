@@ -1,5 +1,5 @@
 # Oof (omnipotent output friend)
-It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. Oof is a single C++ header that wraps these in a convenient way
+It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. *Oof* is a single C++20 header that wraps these in a convenient way
 
 On top of that, *oof* provides two special interfaces that heavily optimizes the resulting stream of VT sequences, so that real-time outputs like those below are possible. Note that everything in these videos are letters in a console window:
 
@@ -18,45 +18,45 @@ The simple interface consists of the functions below.
 
 ```c++
 // Sets the foreground RGB color
-auto fg_color(const color& col) -> ...
-
-// Sets the foreground indexed color. Index must be in [1, 255]
-auto fg_color(int index) -> ...
+auto fg_color(const color& col)
 
 // Sets the background RGB color
-auto bg_color(const color& col) -> ...
+auto bg_color(const color& col)
+
+// Sets the foreground indexed color. Index must be in [1, 255]
+auto fg_color(int index)
 
 // Sets the background indexed color. Index must be in [1, 255]
-auto bg_color(int index) -> ...
+auto bg_color(int index)
 
 // Sets the indexed color. Index must be in [1, 255]
-auto set_index_color(int index, const color& col) -> ...
+auto set_index_color(int index, const color& col)
 
 // Sets the underline state
-auto underline(bool new_value = true) -> ...
+auto underline(bool new_value = true)
 
 // Sets the bold state. Warning: Bold is not supported by all console, see readme
-auto bold(bool new_value = true) -> ...
+auto bold(bool new_value = true)
 
 // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-auto cursor_visibility(bool new_value) -> ...
+auto cursor_visibility(bool new_value)
 
 // Resets foreground- and background color, underline and bold state
-auto reset_formatting()  -> ...
+auto reset_formatting()
 
 // Clears the screen
-auto clear_screen() -> ...
+auto clear_screen()
 
 // Sets the cursor position. Zero-based ie 0, 0 is first line, first column
-auto position(int line, int column) -> ...
-auto vposition(int line)            -> ...
-auto hposition(int column)          -> ...
+auto position(int line, int column)
+auto vposition(int line)
+auto hposition(int column)
 
 // Moves the cursor a certain amount
-auto move_left (int amount) -> ...
-auto move_right(int amount) -> ...
-auto move_up   (int amount) -> ...
-auto move_down (int amount) -> ...
+auto move_left (int amount)
+auto move_right(int amount)
+auto move_up   (int amount)
+auto move_down (int amount)
 ```
 
 Index colors are simply colors refered to by an index. The colors behind the indices can be set with `set_index_color()`.
@@ -77,9 +77,9 @@ The type `oof::color` is just a `struct color { uint8_t red{}, green{}, blue{}; 
 ## Performance and screen interfaces
 Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is pretty expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
 
-If you want real-time output, ie continuously changing what's on the screen, there's even more potential: If a program keeps track of the current state of the screen, it can avoid writing cells that haven't changed. And: Changing the console cursor state (even without printing anything) is expensive. By avoiding unnecessary state changes, the performance can be optimized even more. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
+If you want real-time output, ie continuously changing what's on the screen, there's even more potential: By keeping track of the current screen state, *oof* avoids writing to cells that haven't changed. And: Changing the console cursor state (even without printing anything) is expensive. Avoiding unnecessary state changes is key. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
 
-`oof::screen` lets you define a rectangle of your console window, and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be used to avoid allocating a new string. So it'll avoid memory waste. Almost always, the cost of building up the string is tiny vs the cost of printing, so don't worry about this too much.
+`oof::screen` lets you define a rectangle in your console window, and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be used to avoid allocating a new string. So it'll avoid memory waste. Almost always, the cost of building up the string is tiny vs the cost of printing, so don't worry about this too much.
 
 Example for `oof::screen` usage:
 ```c++
@@ -135,14 +135,12 @@ This is a short overview of common monospce fonts and how well they are suited f
 | Broken or awful | Input mono, Menlo, Office Code pro |
 
 ### Bold
-The `bold` sequence is special. Some consoles ignore it entirely, some implement is as actual bold and others implement it as "bright" - slightly altering the colors of affected letters. Check yours before you use it. `cmd.exe` interprets it as bright. The Windows Terminal however correctly implements it as bold since v1.11, if you set it "intenseTextStyle": "bold". See [this article](https://devblogs.microsoft.com/commandline/windows-terminal-preview-1-11-release/#intense-text-style).
+The `bold` sequence is special. Some consoles ignore it entirely, some implement is as actual bold and others implement it as "bright" - slightly altering the colors of affected letters. Check yours before you use it. `cmd.exe` interprets it as bright. The Windows Terminal however correctly implements it as bold since v1.11, if you set `"intenseTextStyle": "bold"`. See [this article](https://devblogs.microsoft.com/commandline/windows-terminal-preview-1-11-release/#intense-text-style).
 
 ### Errors
 You can provide an error function that gets called when something goes wrong. This mostly catches obvious usage errors (negative sizes, out of bounds indices etc), so feel free to ignore this. If you want, this is how:
 ```c++
-auto my_error_function(
-   const std::string& msg
-) -> void
+auto my_error_function(const std::string& msg) -> void
 {
    std::cerr << std::format("ERROR! msg: {}\n", msg);
    std::terminate();
