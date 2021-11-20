@@ -69,7 +69,7 @@ auto snow_demo() -> void
    const int height = 2 * get_screen_cell_dimensions()[1];
    constexpr double max_speed = 20.0;
    double dt{};
-   oof::pixel_screen px{ width, height, 0, 0, oof::color{0, 0, 0} };
+   oof::pixel_screen px{ width, height };
 
    std::vector<stick_state> neigh(width*height, stick_state::no_stick);
    for(int column=0; column<width; ++column)

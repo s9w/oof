@@ -33,7 +33,7 @@ auto radar_demo() -> void
 {
    const int radar_width = 2 * get_screen_cell_dimensions()[1];
    
-   oof::pixel_screen px{ radar_width, radar_width, 0, 0, oof::color{} };
+   oof::pixel_screen px{ radar_width, radar_width };
    const s9w::dvec2 center{ radar_width / 2.0 };
    constexpr s9w::dvec2 half_pixel_offset{ 0.5 };
    const double radar_radius = radar_width / 2.0 - 5.0;

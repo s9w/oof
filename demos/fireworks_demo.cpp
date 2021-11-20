@@ -145,7 +145,7 @@ auto fireworks_demo() -> void
 {
    s9w::ivec2 dim = get_screen_cell_dimensions();
    constexpr double gravity = 20.0;
-   oof::pixel_screen canvas(dim[0], 2 * dim[1], 0, 0, oof::color{});
+   oof::pixel_screen canvas(dim[0], 2 * dim[1]);
    timer timer;
 
    std::vector<small_rocket> small_rockets;

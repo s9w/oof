@@ -10,12 +10,16 @@ namespace oof
    // Feel free to bit_cast, reinterpret_cast or memcpy your 3-byte color type into this.
    struct color {
       uint8_t red{}, green{}, blue{};
+      constexpr color() = default;
+      constexpr color(const uint8_t component);
+      constexpr color(const uint8_t r, const uint8_t g, const uint8_t b);
       friend constexpr auto operator==(const color&, const color&) -> bool = default;
    };
+   
 
    // Necessary forward declarations
    struct fg_rgb_color_sequence; struct fg_index_color_sequence;
-   struct bg_rgb_color_sequence;    struct bg_index_color_sequence;
+   struct bg_rgb_color_sequence; struct bg_index_color_sequence;
    struct set_index_color_sequence;
    struct bold_sequence; struct cursor_visibility_sequence; struct underline_sequence;
    struct position_sequence; struct hposition_sequence; struct vposition_sequence;
@@ -48,7 +52,7 @@ namespace oof
    [[nodiscard]] auto cursor_visibility(bool new_value) -> cursor_visibility_sequence;
 
    // Resets foreground- and background color, underline and bold state
-   [[nodiscard]] auto reset_formatting()  -> reset_sequence;
+   [[nodiscard]] auto reset_formatting() -> reset_sequence;
 
    // Clears the screen
    [[nodiscard]] auto clear_screen() -> clear_screen_sequence;
@@ -134,7 +138,10 @@ namespace oof
       explicit screen(int width, int height, int start_column, int start_line, const cell<string_type>& background);
 
       // This constructor taking a fill_char implies black background, white foreground color
-      explicit screen(int width, int height, int start_column, int start_line, const char_type fill_char);
+      explicit screen(int width, int height, int start_column, int start_line, char_type fill_char);
+
+      // This constructor taking a fill_char implies black background, white foreground color and top left start
+      explicit screen(int width, int height, char_type fill_char);
 
       [[nodiscard]] auto get_width() const -> int;
       [[nodiscard]] auto get_height() const -> int;
@@ -216,6 +223,8 @@ namespace oof
    // Deduction guide
    template<typename char_type>
    screen(int, int, int, int, char_type fill_char) -> screen<std::basic_string<char_type>>;
+   template<typename char_type>
+   screen(int, int, char_type fill_char) -> screen<std::basic_string<char_type>>;
 
    template<typename stream_type, oof::sequence_c sequence_type>
    auto operator<<(stream_type& os, const sequence_type& sequence) -> stream_type&;
@@ -308,6 +317,19 @@ namespace oof
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
 
    } // namespace detail
+
+   constexpr color::color(const uint8_t component)
+      : red{ component }, green{ component }, blue{ component }
+   {
+      
+   }
+
+   constexpr color::color(const uint8_t r, const uint8_t g, const uint8_t b)
+      : red{ r }, green{ g }, blue{ b }
+   {
+
+   }
+
 
    struct fg_rgb_color_sequence : detail::extender<fg_rgb_color_sequence> {
       color m_color;
@@ -674,18 +696,6 @@ template<oof::std_string_type string_type>
 oof::screen<string_type>::screen(
    const int width, const int height,
    const int start_column, const int start_line,
-   const char_type fill_char
-)
-   : screen(width, height, start_column, start_line, cell<string_type>{fill_char})
-{
-
-}
-
-
-template<oof::std_string_type string_type>
-oof::screen<string_type>::screen(
-   const int width, const int height,
-   const int start_column, const int start_line,
    const cell<string_type>& background
 )
    : m_width(width)
@@ -705,6 +715,29 @@ oof::screen<string_type>::screen(
       const std::string msg = "Height can't be negative";
       ::oof::detail::error(msg);
    }
+}
+
+
+template<oof::std_string_type string_type>
+oof::screen<string_type>::screen(
+   const int width, const int height,
+   const int start_column, const int start_line,
+   const char_type fill_char
+)
+   : screen(width, height, start_column, start_line, cell<string_type>{fill_char})
+{
+   
+}
+
+
+template<oof::std_string_type string_type>
+oof::screen<string_type>::screen(
+   const int width, const int height,
+   const char_type fill_char
+)
+   : screen(width, height, 0, 0, cell<string_type>{fill_char})
+{
+
 }
 
 

@@ -124,7 +124,7 @@ auto text_demo() -> void
    paras.emplace_back("To crush the rebellion once and for all, the EMPIRE is constructing a sinister new battle station. Powerful enough to destroy an entire planet, its completion spells certain doom for the champions of freedom.");
    paragraph_writer writer(std::move(paras));
    
-   oof::screen scr{ 34, 30, 0, 0, ' ' };
+   oof::screen scr{ 34, 30, ' ' };
    timer timer;
    while (true) {
       scr.clear();

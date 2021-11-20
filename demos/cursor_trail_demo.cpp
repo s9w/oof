@@ -93,7 +93,7 @@ auto cursor_trail_demo() -> void
    const s9w::ivec2 canvas_dimensions = canvas_pixel_size / halfline_font_pixel_size;
 
    const RECT window_rect = get_window_rect();
-   oof::pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1], 0, 0, oof::color{});
+   oof::pixel_screen canvas(canvas_dimensions[0], canvas_dimensions[1]);
    timer timer;
    double fade_amount = 0.0;
    std::wstring string_buffer;
