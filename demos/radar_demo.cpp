@@ -14,9 +14,9 @@ namespace
    auto get_faded(const oof::color& col) -> oof::color {
       constexpr int fade_amount = 20;
       return oof::color{
-         static_cast<uint8_t>(std::clamp(col.red - fade_amount, 0, 255)),
-         static_cast<uint8_t>(std::clamp(col.green - fade_amount, 0, 255)),
-         static_cast<uint8_t>(std::clamp(col.blue - fade_amount, 0, 255))
+         std::clamp(col.red - fade_amount, 0, 255),
+         std::clamp(col.green - fade_amount, 0, 255),
+         std::clamp(col.blue - fade_amount, 0, 255)
       };
    };
 

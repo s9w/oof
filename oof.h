@@ -11,8 +11,13 @@ namespace oof
    struct color {
       uint8_t red{}, green{}, blue{};
       constexpr color() = default;
-      constexpr color(const uint8_t component);
-      constexpr color(const uint8_t r, const uint8_t g, const uint8_t b);
+
+      template<std::integral component_type>
+      constexpr color(component_type component);
+
+      template<std::integral component_type>
+      constexpr color(component_type r, component_type g, component_type b);
+
       friend constexpr auto operator==(const color&, const color&) -> bool = default;
    };
    
@@ -318,16 +323,26 @@ namespace oof
 
    } // namespace detail
 
-   constexpr color::color(const uint8_t component)
-      : red{ component }, green{ component }, blue{ component }
+
+   template<std::integral component_type>
+   constexpr color::color(component_type r, component_type g, component_type b)
+      : red{ static_cast<uint8_t>(r) }
+      , green{ static_cast<uint8_t>(g) }
+      , blue{ static_cast<uint8_t>(b) }
    {
-      
+      if (r < component_type{ 0 } || r > component_type{255})
+         ::oof::detail::error("red component not in [0, 255]");
+      if (g < component_type{ 0 } || g > component_type{ 255 })
+         ::oof::detail::error("green component not in [0, 255]");
+      if (b < component_type{ 0 } || b > component_type{ 255 })
+         ::oof::detail::error("blue component not in [0, 255]");
    }
 
-   constexpr color::color(const uint8_t r, const uint8_t g, const uint8_t b)
-      : red{ r }, green{ g }, blue{ b }
+   template<std::integral component_type>
+   constexpr color::color(component_type component)
+      : color(component, component, component)
    {
-
+      
    }
 
 

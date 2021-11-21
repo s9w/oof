@@ -1,7 +1,26 @@
 # Oof (omnipotent output friend)
 It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. *Oof* is a single C++20 header that wraps these in a convenient way.
 
-On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. Everything in these videos are letters in a console window:
+```c++
+for (int i = 0; i < 10; ++i){
+   std::cout << oof::fg_color(oof::color{255 - i * 25});
+   std::cout << oof::hposition(2*i) << std::to_string(i) << "\n";
+}
+```
+![123_example](https://user-images.githubusercontent.com/6044318/142816762-f1167a81-3d11-4b4a-85fc-d4edcdc06bf6.png)
+
+
+```c++
+constexpr double values[]{0.54, 0.88, 0.42, 0.21, 0.33, 0.68, 0.91};
+for(int i=0; i<std::size(values); ++i){
+   std::cout << oof::underline(true) << std::format("value {}", i) << oof::reset_formatting() << ": ";
+   const oof::color color{ 255, static_cast<int>(255 - values[i] * 255), 0 };
+   std::cout << oof::fg_color(color) << std::format("{:.2f}\n", values[i]) << oof::reset_formatting();
+}
+```
+![values_example](https://user-images.githubusercontent.com/6044318/142819817-d1fc16fc-01e7-4a49-a908-33ed4b7a7c37.png)
+
+On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. The following videos show what's possible with that - everything in these videos are letters in a console window:
 
 https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
@@ -59,7 +78,7 @@ auto move_up   (int amount)
 auto move_down (int amount)
 ```
 
-Index colors are simply colors refered to by an index. The colors behind the indices can be set with `set_index_color()`.
+Index colors are simply colors referred to by an index. The colors behind the indices can be set with `set_index_color()`.
 
 All these functions return a magic type that can `operator<<` into `std::cout` and `std::wcout`. Example:
 ```c++
@@ -72,14 +91,14 @@ std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to norma
 
 They also implicitly convert into `std::string` and `std::wstring` so you can build up your own strings with them.
 
-The type `oof::color` is just a `struct color { uint8_t red{}, green{}, blue{}; }`. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
+The type [`oof::color`](https://github.com/s9w/oof/blob/master/oof.h#L11-L22) is mostly just a `struct color { uint8_t red{}, green{}, blue{}; }`. It does have convenience constructors for integer component parameters that get automatically `static_cast`ed into `uint8_t`. And it can be constructed with a single value, which will result in a grayscale color. You're encouraged to `std::bit_cast`, `reinterpret_cast` or `memcpy` your favorite 3-byte RGB color type into this.
 
 ## Performance and screen interfaces
 Each printing command (regardless of wether it's `printf`, `std::cout` or something OS-specific) is pretty expensive. If performance is a priority, then consider building up your string first, and printing it in one go.
 
 If you want real-time output, ie continuously changing what's on the screen, there's even more potential: By keeping track of the current screen state, *oof* avoids writing to cells that haven't changed. And: Changing the console cursor state (even without printing anything) is expensive. Avoiding unnecessary state changes is key. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
 
-With `oof::screen` you define a rectangle in your console window and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be reused to avoid allocating a new string. Almost always, the time to build up the string is tiny vs the time it takes to print, so don't worry about this too much.
+With [`oof::screen`](https://github.com/s9w/oof/blob/master/oof.h#L140-L168) you define a rectangle in your console window and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be reused to avoid allocating a new string. Almost always, the time to build up the string is tiny vs the time it takes to print, so don't worry about this too much.
 
 Example for `oof::screen` usage:
 ```c++
@@ -103,7 +122,7 @@ The API in general is pretty low level compared to [other](https://github.com/Ar
 Consoles always write text, ie letters. With most fonts, a single letter or cell is much taller than wide. By using a very special character that exactly fills the upper half of a cell, the visible area gets effectively transformed into (almost) square pixels. Exactly that's done by the `pixel_screen` class. There you only set colors and give up control of the letters themselves. Note that that type often has `halfline` type parameters. That's due to the fact that a "pixel" is now just half a line high.
 
 ### `oof::pixel_screen`
-Example for `oof::pixel_screen` usage:
+Example for [`oof::pixel_screen`](https://github.com/s9w/oof/blob/master/oof.h#L184-L213) usage:
 ```c++
 oof::pixel_screen screen(10, 10);
 const auto t0 = std::chrono::high_resolution_clock::now();

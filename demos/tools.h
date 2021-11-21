@@ -120,9 +120,9 @@ auto remove_from_vector(
 inline auto get_random_color(s9w::rng_state& rng) -> oof::color
 {
    return oof::color{
-      static_cast<uint8_t>(rng.get_int(0, 255)),
-      static_cast<uint8_t>(rng.get_int(0, 255)),
-      static_cast<uint8_t>(rng.get_int(0, 255))
+      rng.get_int(0, 255),
+      rng.get_int(0, 255),
+      rng.get_int(0, 255)
    };
 }
 
