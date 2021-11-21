@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <variant>
