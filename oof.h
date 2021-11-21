@@ -13,10 +13,16 @@ namespace oof
       constexpr color() = default;
 
       template<std::integral component_type>
-      constexpr color(component_type component);
+      constexpr color(component_type r, component_type g, component_type b)
+         : red{ static_cast<uint8_t>(r) }
+         , green{ static_cast<uint8_t>(g) }
+         , blue{ static_cast<uint8_t>(b) }
+      {}
 
       template<std::integral component_type>
-      constexpr color(component_type r, component_type g, component_type b);
+      constexpr color(component_type component)
+         : color(component, component, component)
+      {}
 
       friend constexpr auto operator==(const color&, const color&) -> bool = default;
    };
@@ -131,7 +137,7 @@ namespace oof
       using char_type = typename string_type::value_type;
 
       char_type m_letter{};
-      cell_format m_format;
+      cell_format m_format{};
       friend constexpr auto operator==(const cell&, const cell&) -> bool = default;
    };
 
@@ -322,28 +328,6 @@ namespace oof
       using fitting_char_sequence_t = std::conditional_t<std::is_same_v<string_type, std::string>, char_sequence, wchar_sequence>;
 
    } // namespace detail
-
-
-   template<std::integral component_type>
-   constexpr color::color(component_type r, component_type g, component_type b)
-      : red{ static_cast<uint8_t>(r) }
-      , green{ static_cast<uint8_t>(g) }
-      , blue{ static_cast<uint8_t>(b) }
-   {
-      if (r < component_type{ 0 } || r > component_type{255})
-         ::oof::detail::error("red component not in [0, 255]");
-      if (g < component_type{ 0 } || g > component_type{ 255 })
-         ::oof::detail::error("green component not in [0, 255]");
-      if (b < component_type{ 0 } || b > component_type{ 255 })
-         ::oof::detail::error("blue component not in [0, 255]");
-   }
-
-   template<std::integral component_type>
-   constexpr color::color(component_type component)
-      : color(component, component, component)
-   {
-      
-   }
 
 
    struct fg_rgb_color_sequence : detail::extender<fg_rgb_color_sequence> {
@@ -660,13 +644,13 @@ auto oof::detail::get_index_color_seq_str(
    else
       result = L";rgb:";
 
-   constexpr auto write_nibble = [&](const int nibble) {
+   const auto write_nibble = [&](const int nibble) {
       if (nibble < 10)
          result += static_cast<char_type>('0' + nibble);
       else
          result += static_cast<char_type>('a' + nibble - 10);
    };
-   constexpr auto write_component = [&](const uint8_t component) {
+   const auto write_component = [&](const uint8_t component) {
       if (component > 15)
          write_nibble(component >> 4);
       write_nibble(component & 0xf);
