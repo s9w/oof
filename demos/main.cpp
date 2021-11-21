@@ -31,9 +31,9 @@ int main()
    enable_vt_mode();
    std::cout << oof::cursor_visibility(false) << oof::reset_formatting() << oof::clear_screen();
 
-   std::cout << oof::fg_color({ 255, 100, 100 }) << "This is red\n";
-   std::cout << "Still the same - state was changed!\n";
-   std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
+   //std::cout << oof::fg_color({ 255, 100, 100 }) << "This is red\n";
+   //std::cout << "Still the same - state was changed!\n";
+   //std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 
    // oof::screen scr(10, 3, 0, 0, ' ');
    // for(uint64_t i=0; ; ++i){
@@ -59,6 +59,20 @@ int main()
    //    }
    //    fast_print(screen.get_string());
    // }
+
+   // 123 Example
+   //for (int i = 0; i < 10; ++i) {
+   //   std::cout << oof::fg_color(oof::color{ 255 - i * 25 });
+   //   std::cout << oof::hposition(2 * i) << std::to_string(i) << "\n";
+   //}
+
+   // Values example
+   //constexpr double values[]{0.54, 0.88, 0.42, 0.21, 0.33, 0.68, 0.91};
+   //for(int i=0; i<std::size(values); ++i){
+   //   std::cout << oof::underline(true) << std::format("value {}", i) << oof::reset_formatting() << ": ";
+   //   const oof::color color{ 255, static_cast<int>(255 - values[i] * 255), 0 };
+   //   std::cout << oof::fg_color(color) << std::format("{:.2f}\n", values[i]) << oof::reset_formatting();
+   //}
 
 
    int demo_choice = 0;

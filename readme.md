@@ -1,7 +1,26 @@
 # Oof (omnipotent output friend)
 It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. *Oof* is a single C++20 header that wraps these in a convenient way.
 
-On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. Everything in these videos are letters in a console window:
+```c++
+for (int i = 0; i < 10; ++i){
+   std::cout << oof::fg_color(oof::color{255 - i * 25});
+   std::cout << oof::hposition(2*i) << std::to_string(i) << "\n";
+}
+```
+![123_example](https://user-images.githubusercontent.com/6044318/142816762-f1167a81-3d11-4b4a-85fc-d4edcdc06bf6.png)
+
+
+```c++
+constexpr double values[]{0.54, 0.88, 0.42, 0.21, 0.33, 0.68, 0.91};
+for(int i=0; i<std::size(values); ++i){
+   std::cout << oof::underline(true) << std::format("value {}", i) << oof::reset_formatting() << ": ";
+   const oof::color color{ 255, static_cast<int>(255 - values[i] * 255), 0 };
+   std::cout << oof::fg_color(color) << std::format("{:.2f}\n", values[i]) << oof::reset_formatting();
+}
+```
+![values_example](https://user-images.githubusercontent.com/6044318/142819817-d1fc16fc-01e7-4a49-a908-33ed4b7a7c37.png)
+
+On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. The following videos show what's possible with that - everything in these videos are letters in a console window:
 
 https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
