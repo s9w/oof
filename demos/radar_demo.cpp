@@ -59,7 +59,7 @@ auto radar_demo() -> void
             const s9w::dvec2 rel_pos = s9w::dvec2{ x, y } - center + half_pixel_offset;
             const double pixel_phi = nonstupid_atan2(rel_pos[1], rel_pos[0]);
             if(s9w::equal(pixel_phi, radar_phi, 0.05) && s9w::get_length(rel_pos) < radar_radius)
-               px.get_color(x, y) = oof::color{ 255, 0, 0 };
+               px.get_color(x, y) = { 255, 0, 0 };
          }
       }
       

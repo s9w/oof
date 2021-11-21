@@ -247,7 +247,7 @@ namespace oof
       [[nodiscard]] auto get_pixel_background(const color& fill_color) -> cell<std::wstring>;
 
       template<oof::std_string_type string_type>
-      [[nodiscard]] auto write_sequence_string_no_reserve(const std::vector<sequence_variant_type>& sequences, string_type& target) -> void;
+      auto write_sequence_string_no_reserve(const std::vector<sequence_variant_type>& sequences, string_type& target) -> void;
 
       template<oof::sequence_c sequence_type>
       [[nodiscard]] constexpr auto get_sequence_string_size(const sequence_type& sequence) -> size_t;
@@ -397,7 +397,7 @@ constexpr auto oof::detail::get_sequence_string_size(const sequence_type& sequen
    constexpr auto get_int_param_str_length = [](const int param) -> int {
       if (param < 10)  return 1;
       if (param < 100) return 2;
-      else             return 3;
+                       return 3;
    };
 
    if constexpr (is_any_of<sequence_type, char_sequence, wchar_sequence>) {
@@ -735,7 +735,7 @@ oof::screen<string_type>::screen(
    const int width, const int height,
    const char_type fill_char
 )
-   : screen(width, height, 0, 0, cell<string_type>{fill_char})
+   : screen(width, height, 0, 0, fill_char)
 {
 
 }

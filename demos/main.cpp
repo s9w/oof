@@ -21,7 +21,7 @@ auto my_error_function(
 auto print_choice(const char* desc)
 {
    static int choice = 0;
-   std::cout << choice << ": " << oof::fg_color(oof::color{ 255, 100, 100 }) << desc << oof::reset_formatting() << "\n";
+   std::cout << choice << ": " << oof::fg_color({ 255, 100, 100 }) << desc << oof::reset_formatting() << "\n";
    ++choice;
 }
 
@@ -31,9 +31,9 @@ int main()
    enable_vt_mode();
    std::cout << oof::cursor_visibility(false) << oof::reset_formatting() << oof::clear_screen();
 
-   //std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
-   //std::cout << "Still the same - state was changed!\n";
-   //std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
+   std::cout << oof::fg_color({ 255, 100, 100 }) << "This is red\n";
+   std::cout << "Still the same - state was changed!\n";
+   std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 
    // oof::screen scr(10, 3, 0, 0, ' ');
    // for(uint64_t i=0; ; ++i){

@@ -1,7 +1,7 @@
 # Oof (omnipotent output friend)
-It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. *Oof* is a single C++20 header that wraps these in a convenient way
+It's common for C++ programs to write output to the console. But consoles are far more capable than what they are usually used for. The magic lies in the so-called [Virtual Terminal sequences](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences) (sometimes also confusingly called ["escape codes"](https://en.wikipedia.org/wiki/ANSI_escape_code)): These cryptic character sequences allow complete control over position, color and other properties of written characters. *Oof* is a single C++20 header that wraps these in a convenient way.
 
-On top of that, *oof* provides two special interfaces that heavily optimizes the resulting stream of VT sequences, so that real-time outputs like those below are possible. Note that everything in these videos are letters in a console window:
+On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. Everything in these videos are letters in a console window:
 
 https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
@@ -63,7 +63,7 @@ Index colors are simply colors refered to by an index. The colors behind the ind
 
 All these functions return a magic type that can `operator<<` into `std::cout` and `std::wcout`. Example:
 ```c++
-std::cout << oof::fg_color(oof::color{ 255, 100, 100 }) << "This is red\n";
+std::cout << oof::fg_color({ 255, 100, 100 }) << "This is red\n";
 std::cout << "Still the same - state was changed!\n";
 std::cout << oof::reset_formatting() << oof::hposition(10) << "All back to normal\n";
 ```
@@ -79,7 +79,7 @@ Each printing command (regardless of wether it's `printf`, `std::cout` or someth
 
 If you want real-time output, ie continuously changing what's on the screen, there's even more potential: By keeping track of the current screen state, *oof* avoids writing to cells that haven't changed. And: Changing the console cursor state (even without printing anything) is expensive. Avoiding unnecessary state changes is key. Both of these optimizations are implemented in the `screen` and `pixel_screen` classes.
 
-`oof::screen` lets you define a rectangle in your console window, and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be used to avoid allocating a new string. So it'll avoid memory waste. Almost always, the cost of building up the string is tiny vs the cost of printing, so don't worry about this too much.
+With `oof::screen` you define a rectangle in your console window and set the state of every single cell. Its `get_string()` and `write_string(string_type&)` methods then output an optimized string to achieve the desired state. This assumes that the user didn't interfere - so don't. The difference between `get_string()` and `write_string(string_type&)` is that the passed string will be reused to avoid allocating a new string. Almost always, the time to build up the string is tiny vs the time it takes to print, so don't worry about this too much.
 
 Example for `oof::screen` usage:
 ```c++
@@ -121,7 +121,7 @@ while(true){
 ```
 ![pixel_screen_example](https://user-images.githubusercontent.com/6044318/142581841-66a235d1-d1e8-4f02-b7e7-2c9889a321e6.gif)
 
-The source code from the demo videos at the beginning is in this repo under /demos. That code uses a not-included and yet unreleased helper library (`s9w::`) for colors and math. But those aren't crucial if you just want to have a look.
+The source code from the demo videos at the beginning is in this repo under [demos/](demos). That code uses a not-included and yet unreleased helper library (`s9w::`) for colors and math. But those aren't crucial if you just want to have a look.
 
 ## Notes
 Consoles display text. Text is displayed via fonts. If you use letters that aren't included in your console font, that will result in visual artifacts - duh. This especially important for the `pixel_display` type, as it uses the mildly special [Block element](https://en.wikipedia.org/wiki/Block_Elements) '▀'. Some fonts may not have them included. Others do, but have them poorly aligned or sized - breaking up the even pixel grid.

@@ -246,7 +246,7 @@ auto fireworks_demo() -> void
          const s9w::ivec2 new_dim = get_screen_cell_dimensions();
          if (new_dim != dim) {
             fast_print(std::string(oof::clear_screen()));
-            canvas = oof::pixel_screen(new_dim[0], 2 * new_dim[1], 0, 0, oof::color{});
+            canvas = oof::pixel_screen(new_dim[0], 2 * new_dim[1]);
             dim = new_dim;
             glitter.clear();
          }
