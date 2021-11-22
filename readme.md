@@ -37,45 +37,45 @@ The simple interface consists of the functions below.
 
 ```c++
 // Sets the foreground RGB color
-auto fg_color(const color& col)
+auto fg_color(const color& col);
 
 // Sets the background RGB color
-auto bg_color(const color& col)
+auto bg_color(const color& col);
 
 // Sets the foreground indexed color. Index must be in [1, 255]
-auto fg_color(int index)
+auto fg_color(int index);
 
 // Sets the background indexed color. Index must be in [1, 255]
-auto bg_color(int index)
+auto bg_color(int index);
 
 // Sets the indexed color. Index must be in [1, 255]
-auto set_index_color(int index, const color& col)
+auto set_index_color(int index, const color& col);
 
 // Sets the underline state
-auto underline(bool new_value = true)
+auto underline(bool new_value = true);
 
 // Sets the bold state. Warning: Bold is not supported by all console, see readme
-auto bold(bool new_value = true)
+auto bold(bool new_value = true);
 
 // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-auto cursor_visibility(bool new_value)
+auto cursor_visibility(bool new_value);
 
 // Resets foreground- and background color, underline and bold state
-auto reset_formatting()
+auto reset_formatting();
 
 // Clears the screen
-auto clear_screen()
+auto clear_screen();
 
 // Sets the cursor position. Zero-based ie 0, 0 is first line, first column
-auto position(int line, int column)
-auto vposition(int line)
-auto hposition(int column)
+auto position(int line, int column);
+auto vposition(int line);
+auto hposition(int column);
 
 // Moves the cursor a certain amount
-auto move_left (int amount)
-auto move_right(int amount)
-auto move_up   (int amount)
-auto move_down (int amount)
+auto move_left (int amount);
+auto move_right(int amount);
+auto move_up   (int amount);
+auto move_down (int amount);
 ```
 
 Index colors are simply colors referred to by an index. The colors behind the indices can be set with `set_index_color()`.
