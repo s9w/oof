@@ -4,7 +4,7 @@ It's common for C++ programs to write output to the console. But consoles are fa
 ```c++
 for (int i = 0; i < 10; ++i){
    std::cout << oof::fg_color(oof::color{255 - i * 25});
-   std::cout << oof::hposition(2*i) << std::to_string(i) << "\n";
+   std::cout << oof::position(i, 2 * i) << std::to_string(i);
 }
 ```
 ![123_example](https://user-images.githubusercontent.com/6044318/142816762-f1167a81-3d11-4b4a-85fc-d4edcdc06bf6.png)
