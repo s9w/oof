@@ -145,7 +145,7 @@ The source code from the demo videos at the beginning is in this repo under [dem
 ## Notes
 Consoles display text. Text is displayed via fonts. If you use letters that aren't included in your console font, that will result in visual artifacts - duh. This especially important for the `pixel_display` type, as it uses the mildly special [Block element](https://en.wikipedia.org/wiki/Block_Elements) '▀'. Some fonts may not have them included. Others do, but have them poorly aligned or sized - breaking up the even pixel grid.
 
-This is a short overview of common monospce fonts and how well they are suited for "pixel" displays. Note that many are great in some sizes but ugly in others.
+This is a short overview of common monospace fonts and how well they are suited for "pixel" displays. Note that many are great in some sizes but ugly in others.
 
 | | Font name |
 |---|---|
