@@ -20,7 +20,7 @@ for(int i=0; i<std::size(values); ++i){
 ```
 ![values_example](https://user-images.githubusercontent.com/6044318/142819817-d1fc16fc-01e7-4a49-a908-33ed4b7a7c37.png)
 
-On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. The following videos show what's possible with that - everything in these videos are letters in a console window:
+On top of that, *oof* provides two special interfaces that heavily optimize the resulting stream of VT sequences, so that real-time outputs like those below are possible. The following videos are showcases - everything in them are letters in a console window:
 
 https://user-images.githubusercontent.com/6044318/142469815-ce680909-9151-4322-85aa-01dc9ba29c1d.mp4
 
@@ -37,45 +37,45 @@ The simple interface consists of the functions below.
 
 ```c++
 // Sets the foreground RGB color
-auto fg_color(const color& col);
+auto fg_color(const color& col) -> fg_rgb_color_sequence;
 
 // Sets the background RGB color
-auto bg_color(const color& col);
+auto bg_color(const color& col) -> bg_rgb_color_sequence;
 
 // Sets the foreground indexed color. Index must be in [1, 255]
-auto fg_color(int index);
+auto fg_color(int index) -> fg_index_color_sequence;
 
 // Sets the background indexed color. Index must be in [1, 255]
-auto bg_color(int index);
+auto bg_color(int index) -> bg_index_color_sequence;
 
 // Sets the indexed color. Index must be in [1, 255]
-auto set_index_color(int index, const color& col);
+auto set_index_color(int index, const color& col) -> set_index_color_sequence;
 
 // Sets the underline state
-auto underline(bool new_value = true);
+auto underline(bool new_value = true) -> underline_sequence;
 
 // Sets the bold state. Warning: Bold is not supported by all console, see readme
-auto bold(bool new_value = true);
+auto bold(bool new_value = true) -> bold_sequence;
 
 // Sets cursor visibility state. Recommended to turn off before doing real-time displays
-auto cursor_visibility(bool new_value);
+auto cursor_visibility(bool new_value) -> cursor_visibility_sequence;
 
 // Resets foreground- and background color, underline and bold state
-auto reset_formatting();
+auto reset_formatting() -> reset_sequence;
 
 // Clears the screen
-auto clear_screen();
+auto clear_screen() -> clear_screen_sequence;
 
 // Sets the cursor position. Zero-based ie 0, 0 is first line, first column
-auto position(int line, int column);
-auto vposition(int line);
-auto hposition(int column);
+auto position(int line, int column) -> position_sequence;
+auto vposition(int line) -> vposition_sequence;
+auto hposition(int column) -> hposition_sequence;
 
 // Moves the cursor a certain amount
-auto move_left (int amount);
-auto move_right(int amount);
-auto move_up   (int amount);
-auto move_down (int amount);
+auto move_left (int amount) -> move_left_sequence;
+auto move_right(int amount) -> move_right_sequence;
+auto move_up   (int amount) -> move_up_sequence;
+auto move_down (int amount) -> move_down_sequence;
 ```
 
 Index colors are simply colors referred to by an index. The colors behind the indices can be set with `set_index_color()`.
@@ -169,7 +169,7 @@ oof::error_callback = my_error_function;
 ```
 
 ## Performance & OS-Specific details
-Under windows, `printf` and `std::cout` are very slow. They're completely fine to use for static outputs. But they're unsuitable real-time displays. It's much faster to use Windows own [WriteConsole()](https://docs.microsoft.com/en-us/windows/console/writeconsole) directly. A ready-to use wrapper that works for `std::string` and `std::wstring` would be:
+Under windows, `printf` and `std::cout` are very slow. They're completely fine to use for static outputs but they're unsuitable real-time displays. It's much faster to use Windows own [WriteConsole()](https://docs.microsoft.com/en-us/windows/console/writeconsole) directly. A ready-to use wrapper that works for `std::string` and `std::wstring` would be:
 ```c++
 template<typename char_type>
 auto fast_print(const std::basic_string<char_type>& sss) -> void
