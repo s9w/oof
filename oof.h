@@ -808,7 +808,7 @@ auto oof::screen<string_type>::write_into(
    }
 
    const int ending_column = column + static_cast<int>(text.size());
-   if (ending_column >= m_width)
+   if (ending_column > m_width)
    {
       ::oof::detail::error("Trying to write_into() with a text that won't fit.");
       return;
