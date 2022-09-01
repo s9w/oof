@@ -35,6 +35,7 @@ namespace oof
    struct set_index_color_sequence;
    struct bold_sequence; struct cursor_visibility_sequence; struct underline_sequence;
    struct position_sequence; struct hposition_sequence; struct vposition_sequence;
+   struct store_position_sequence; struct load_position_sequence;
    struct move_left_sequence; struct move_right_sequence; struct move_up_sequence; struct move_down_sequence;
    struct char_sequence; struct wchar_sequence;
    struct reset_sequence; struct clear_screen_sequence;
@@ -73,6 +74,8 @@ namespace oof
    [[nodiscard]] auto position(int line, int column) -> position_sequence;
    [[nodiscard]] auto vposition(int line) -> vposition_sequence;
    [[nodiscard]] auto hposition(int column) -> hposition_sequence;
+   [[nodiscard]] auto store_position() -> store_position_sequence;
+   [[nodiscard]] auto load_position() -> load_position_sequence;
 
    // Moves the cursor a certain amount
    [[nodiscard]] auto move_left(int amount) -> move_left_sequence;
@@ -99,7 +102,7 @@ namespace oof
 
    using sequence_variant_type = std::variant<
       fg_rgb_color_sequence, fg_index_color_sequence, bg_index_color_sequence, bg_rgb_color_sequence, set_index_color_sequence,
-      position_sequence, hposition_sequence, vposition_sequence,
+      position_sequence, hposition_sequence, vposition_sequence, store_position_sequence, load_position_sequence,
       underline_sequence, bold_sequence, char_sequence, wchar_sequence, reset_sequence, clear_screen_sequence, cursor_visibility_sequence,
       move_left_sequence, move_right_sequence, move_up_sequence, move_down_sequence
    >;
@@ -366,6 +369,8 @@ namespace oof
    struct vposition_sequence : detail::extender<vposition_sequence> {
       uint8_t m_line;
    };
+   struct store_position_sequence : detail::extender<store_position_sequence> {};
+   struct load_position_sequence : detail::extender<load_position_sequence> {};
    struct move_left_sequence : detail::extender<move_left_sequence> {
       uint8_t m_amount;
    };
@@ -539,6 +544,10 @@ auto oof::write_sequence_into_string(
       target += static_cast<char_type>('\x1b');
       if constexpr (std::same_as<sequence_type, set_index_color_sequence>)
          target += static_cast<char_type>(']');
+      else if constexpr (std::same_as<sequence_type, store_position_sequence> || std::same_as<sequence_type, load_position_sequence>)
+      {
+         
+      }
       else
          target += static_cast<char_type>('[');
 
@@ -597,6 +606,14 @@ auto oof::write_sequence_into_string(
       {
          detail::write_ints_into_string(target, sequence.m_line + 1);
          target += static_cast<char_type>('d');
+      }
+      else if constexpr (std::is_same_v<sequence_type, store_position_sequence>)
+      {
+         target += static_cast<char_type>('7');
+      }
+      else if constexpr (std::is_same_v<sequence_type, load_position_sequence>)
+      {
+         target += static_cast<char_type>('8');
       }
       else if constexpr (std::is_same_v<sequence_type, move_down_sequence>)
       {
@@ -907,6 +924,16 @@ auto oof::vposition(const int line) -> vposition_sequence {
 
 auto oof::hposition(const int column) -> hposition_sequence {
    return hposition_sequence{ .m_column = static_cast<uint8_t>(column) };
+}
+
+auto oof::store_position() -> store_position_sequence
+{
+   return store_position_sequence{};
+}
+
+auto oof::load_position() -> load_position_sequence
+{
+   return load_position_sequence{};
 }
 
 
