@@ -1,7 +1,6 @@
 #include <optional>
 
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include "include_doctest.h"
 
 #define OOF_IMPL
 #include "../oof.h"

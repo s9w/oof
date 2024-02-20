@@ -1,4 +1,4 @@
-#include "doctest.h"
+#include "include_doctest.h"
 
 #include "../oof.h"
 using namespace oof;
